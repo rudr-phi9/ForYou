@@ -18,7 +18,7 @@ final class GeminiService {
             return
         }
         model = GenerativeModel(
-            name: "gemini-2.5-pro",
+            name: "gemini-3.1-pro-preview",
             apiKey: apiKey
         )
     }

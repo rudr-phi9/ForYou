@@ -317,7 +317,7 @@ open GeminiResearch.xcodeproj
 | Language | Swift 5.9 |
 | UI Framework | SwiftUI |
 | Data Persistence | SwiftData (SQLite-backed) |
-| AI Engine | Google Generative AI SDK (`gemini-2.5-pro`) |
+| AI Engine | Google Generative AI SDK (`gemini-3.1-pro-preview`) |
 | Package Manager | Swift Package Manager via XcodeGen |
 | Notifications | UNUserNotificationCenter |
 | Authentication | LocalAuthentication (Touch ID) |

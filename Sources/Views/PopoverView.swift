@@ -40,6 +40,11 @@ struct PopoverView: View {
             items = items.filter { $0.tagNames.contains(filter) }
         }
 
+        // Apply importance score filter
+        if appState.minimumImportance > 0 {
+            items = items.filter { $0.importanceScore >= appState.minimumImportance }
+        }
+
         return items
     }
 
@@ -67,12 +72,27 @@ struct PopoverView: View {
             } else if displayedItems.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
-                    Image(systemName: appState.feedFilter == .favorites ? "star" : "bookmark")
-                        .font(.system(size: 30))
-                        .foregroundStyle(.tertiary)
-                    Text("No \(appState.feedFilter.rawValue.lowercased()) items yet")
+                    if appState.minimumImportance > 0 {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 30))
+                            .foregroundStyle(.tertiary)
+                        Text("No items with importance \(Int(appState.minimumImportance))+ yet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Show all") {
+                            appState.minimumImportance = 0
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.geminiBlue)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                    } else {
+                        Image(systemName: appState.feedFilter == .favorites ? "star" : "bookmark")
+                            .font(.system(size: 30))
+                            .foregroundStyle(.tertiary)
+                        Text("No \(appState.feedFilter.rawValue.lowercased()) items yet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
@@ -149,6 +169,32 @@ struct PopoverView: View {
             .buttonStyle(.plain)
             .foregroundStyle(appState.feedFilter == .saved ? .geminiPurple : .secondary)
             .help("Saved")
+
+            // Importance score filter
+            Menu {
+                Button("All scores") {
+                    appState.minimumImportance = 0
+                }
+                Divider()
+                ForEach([4.0, 6.0, 7.0, 8.0, 9.0], id: \.self) { score in
+                    Button("\(Int(score))+ importance") {
+                        appState.minimumImportance = score
+                    }
+                }
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 13, weight: .medium))
+                    if appState.minimumImportance > 0 {
+                        Text("\(Int(appState.minimumImportance))+")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .foregroundStyle(appState.minimumImportance > 0 ? .geminiBlue : .secondary)
+            .help("Filter by importance score")
 
             // Sync button
             Button {

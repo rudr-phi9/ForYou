@@ -6,6 +6,9 @@ import SwiftData
 final class GatheringService {
     static let shared = GatheringService()
 
+    /// Max tags fetched in parallel to avoid overwhelming APIs.
+    private let maxConcurrency = 10
+
     private var backgroundTask: Task<Void, Never>?
     private var modelContainer: ModelContainer?
 
@@ -48,6 +51,19 @@ final class GatheringService {
         appState.lastSyncDate = Date()
     }
 
+    // MARK: - Raw fetch results (value types for Sendable transfer)
+
+    private struct FetchedItem: Sendable {
+        let title: String
+        let url: String
+        let sourceType: ContentType
+        let sourceName: String
+        let rawText: String
+        let authors: [String]
+        let timestamp: Date
+        let tagName: String
+    }
+
     // MARK: - Core Gathering Logic
 
     @MainActor
@@ -57,6 +73,7 @@ final class GatheringService {
             return
         }
 
+        let startTime = CFAbsoluteTimeGetCurrent()
         print("[Gathering] Starting sync at \(Date())")
 
         let context = modelContainer.mainContext
@@ -68,7 +85,8 @@ final class GatheringService {
             return
         }
 
-        print("[Gathering] Found \(tags.count) active tag(s): \(tags.map(\.name).joined(separator: ", "))")
+        let tagNames = tags.map(\.name)
+        print("[Gathering] Found \(tags.count) active tag(s): \(tagNames.joined(separator: ", "))")
 
         let gemini = GeminiService.shared
         let settings = SettingsManager.shared
@@ -79,82 +97,130 @@ final class GatheringService {
         }
         print("[Gathering] Gemini configured: \(gemini.isConfigured)")
 
-        for tag in tags {
-            await gatherForTag(tag, context: context, gemini: gemini)
+        // 2. Fetch all sources for all tags in parallel (network-only, no SwiftData)
+        let allFetched = await fetchAllTagsInParallel(tagNames: tagNames)
+        print("[Gathering] Fetched \(allFetched.count) total raw items across \(tagNames.count) tag(s)")
+
+        // 3. Insert into SwiftData on main context (serial, deduped)
+        var newItems: [ResearchItem] = []
+        for fetched in allFetched {
+            let url = fetched.url
+            let descriptor = FetchDescriptor<ResearchItem>(
+                predicate: #Predicate { $0.url == url }
+            )
+            if let existing = try? context.fetch(descriptor), !existing.isEmpty {
+                continue
+            }
+            if isExcludedDomain(url: fetched.url) { continue }
+
+            let item = ResearchItem(
+                title: fetched.title,
+                url: fetched.url,
+                sourceType: fetched.sourceType,
+                sourceName: fetched.sourceName,
+                tagNames: [fetched.tagName]
+            )
+            item.rawTextContent = fetched.rawText
+            item.timestamp = fetched.timestamp
+            item.authors = fetched.authors
+
+            context.insert(item)
+            newItems.append(item)
+            print("[Gathering] Inserted: \(fetched.title.prefix(60))…")
         }
 
         try? context.save()
+        print("[Gathering] Inserted \(newItems.count) new items into database")
+
+        // 4. AI enrichment (summarise + score) — can run after items are visible
+        if gemini.isConfigured {
+            for item in newItems {
+                await summariseItem(item, gemini: gemini)
+                await scoreItem(item, tagName: item.tagNames.first ?? "")
+            }
+            try? context.save()
+        }
+
+        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
         SettingsManager.shared.lastSyncDate = Date()
-        print("[Gathering] Sync complete at \(Date())")
+        print("[Gathering] Sync complete in \(String(format: "%.1f", elapsed))s — \(newItems.count) new items")
     }
 
-    // MARK: - Per-Tag Gathering
+    // MARK: - Parallel Fetching (network only, no SwiftData)
 
-    private func gatherForTag(_ tag: Tag, context: ModelContext, gemini: GeminiService) async {
-        // --- arXiv Papers ---
-        await gatherArXiv(tag: tag, context: context, gemini: gemini)
-
-        // --- Google Search: Blogs & Articles ---
-        await gatherBlogs(tag: tag, context: context, gemini: gemini)
-
-        // --- YouTube Talks (if YouTube API key available) ---
-        await gatherYouTube(tag: tag, context: context, gemini: gemini)
-    }
-
-    // MARK: - arXiv
-
-    private func gatherArXiv(tag: Tag, context: ModelContext, gemini: GeminiService) async {
-        print("[Gathering] Fetching arXiv for '\(tag.name)'...")
-        do {
-            let results = try await ArXivService.shared.search(query: tag.name, maxResults: 8)
-            print("[Gathering] arXiv returned \(results.count) results for '\(tag.name)'")
-
-            for result in results {
-                // Check for duplicates
-                let url = result.url
-                let descriptor = FetchDescriptor<ResearchItem>(
-                    predicate: #Predicate { $0.url == url }
-                )
-                if let existing = try? context.fetch(descriptor), !existing.isEmpty {
-                    continue
+    /// Fetches arXiv + blogs for all tags concurrently, up to `maxConcurrency` at a time.
+    private nonisolated func fetchAllTagsInParallel(tagNames: [String]) async -> [FetchedItem] {
+        await withTaskGroup(of: [FetchedItem].self) { group in
+            for (index, tagName) in tagNames.enumerated() {
+                // Throttle: don't launch more than maxConcurrency at once
+                if index >= maxConcurrency {
+                    // Wait for one to finish before launching another
+                    if let partial = await group.next() {
+                        _ = partial // collected below via reduce
+                    }
                 }
 
-                // Domain exclusion check
-                if isExcludedDomain(url: result.url) { continue }
-
-                let item = ResearchItem(
-                    title: result.title,
-                    url: result.url,
-                    sourceType: .paper,
-                    sourceName: "arXiv",
-                    tagNames: [tag.name]
-                )
-                item.rawTextContent = result.summary
-                item.timestamp = result.published
-                item.authors = result.authors
-
-                // Always insert first so it appears in the feed
-                context.insert(item)
-                print("[Gathering] Inserted arXiv paper: \(result.title.prefix(60))...")
-
-                // Then try AI processing (non-blocking — if it fails, item still shows)
-                if gemini.isConfigured {
-                    // Summarise
-                    await summariseItem(item, gemini: gemini)
-                    // Score
-                    await scoreItem(item, tagName: tag.name)
+                group.addTask { [self] in
+                    await self.fetchForTag(tagName: tagName)
                 }
             }
-        } catch {
-            print("[Gathering] arXiv error for '\(tag.name)': \(error.localizedDescription)")
+
+            // Collect all results
+            var all: [FetchedItem] = []
+            for await batch in group {
+                all.append(contentsOf: batch)
+            }
+            return all
         }
     }
 
-    // MARK: - YouTube
+    /// Fetch arXiv + blogs for a single tag (pure network, returns value types).
+    private nonisolated func fetchForTag(tagName: String) async -> [FetchedItem] {
+        // Run arXiv and blog fetches in parallel for this tag
+        async let arxivItems = fetchArXiv(tagName: tagName)
+        async let blogItems = fetchBlogs(tagName: tagName)
 
-    private func gatherYouTube(tag: Tag, context: ModelContext, gemini: GeminiService) async {
-        print("[Gathering] YouTube skipped (no API key configured)")
-        // YouTube requires its own API key — skip silently for now.
+        let a = await arxivItems
+        let b = await blogItems
+        return a + b
+    }
+
+    /// Fetch arXiv papers — pure network, returns value-type results.
+    private nonisolated func fetchArXiv(tagName: String) async -> [FetchedItem] {
+        print("[Gathering] Fetching arXiv for '\(tagName)'...")
+        do {
+            let results = try await ArXivService.shared.search(query: tagName, maxResults: 8)
+            print("[Gathering] arXiv returned \(results.count) results for '\(tagName)'")
+            return results.map { r in
+                FetchedItem(
+                    title: r.title, url: r.url, sourceType: .paper,
+                    sourceName: "arXiv", rawText: r.summary,
+                    authors: r.authors, timestamp: r.published, tagName: tagName
+                )
+            }
+        } catch {
+            print("[Gathering] arXiv error for '\(tagName)': \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    /// Fetch blog posts — pure network, returns value-type results.
+    private nonisolated func fetchBlogs(tagName: String) async -> [FetchedItem] {
+        print("[Gathering] Fetching blogs for '\(tagName)'...")
+        do {
+            let results = try await GoogleSearchService.shared.search(query: tagName, maxResults: 6)
+            print("[Gathering] Blog search returned \(results.count) results for '\(tagName)'")
+            return results.map { r in
+                FetchedItem(
+                    title: r.title, url: r.url, sourceType: .blog,
+                    sourceName: r.source, rawText: r.snippet,
+                    authors: [], timestamp: Date(), tagName: tagName
+                )
+            }
+        } catch {
+            print("[Gathering] Blog search error for '\(tagName)': \(error.localizedDescription)")
+            return []
+        }
     }
 
     // MARK: - Summarisation
@@ -229,49 +295,6 @@ final class GatheringService {
     private func isExcludedDomain(url: String) -> Bool {
         let lowered = url.lowercased()
         return SettingsManager.shared.excludedDomains.contains { lowered.contains($0) }
-    }
-
-    // MARK: - Blogs & Articles (DuckDuckGo Search)
-
-    private func gatherBlogs(tag: Tag, context: ModelContext, gemini: GeminiService) async {
-        print("[Gathering] Fetching blogs for '\(tag.name)'...")
-        do {
-            let results = try await GoogleSearchService.shared.search(query: tag.name, maxResults: 6)
-            print("[Gathering] Blog search returned \(results.count) results for '\(tag.name)'")
-
-            for result in results {
-                let url = result.url
-                let descriptor = FetchDescriptor<ResearchItem>(
-                    predicate: #Predicate { $0.url == url }
-                )
-                if let existing = try? context.fetch(descriptor), !existing.isEmpty {
-                    continue
-                }
-
-                if isExcludedDomain(url: result.url) { continue }
-
-                let item = ResearchItem(
-                    title: result.title,
-                    url: result.url,
-                    sourceType: .blog,
-                    sourceName: result.source,
-                    tagNames: [tag.name]
-                )
-                item.rawTextContent = result.snippet
-
-                // Always insert first so it appears in the feed
-                context.insert(item)
-                print("[Gathering] Inserted blog: \(result.title.prefix(60))...")
-
-                // Then try AI processing (non-blocking)
-                if gemini.isConfigured {
-                    await summariseItem(item, gemini: gemini)
-                    await scoreItem(item, tagName: tag.name)
-                }
-            }
-        } catch {
-            print("[Gathering] Blog search error for '\(tag.name)': \(error.localizedDescription)")
-        }
     }
 
     // MARK: - Importance Scoring

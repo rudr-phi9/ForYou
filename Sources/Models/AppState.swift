@@ -15,6 +15,8 @@ final class AppState {
     var feedFilter: FeedFilter = .all
     /// Selected item for detail view
     var selectedItem: ResearchItem? = nil
+    /// Minimum importance score filter (0 = show all)
+    var minimumImportance: Double = 0
 
     enum FeedFilter: String, CaseIterable {
         case all = "All"

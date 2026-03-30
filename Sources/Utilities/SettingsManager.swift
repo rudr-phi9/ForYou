@@ -10,6 +10,7 @@ final class SettingsManager {
 
     private enum Key: String {
         case geminiAPIKey = "gemini_api_key"
+        case youtubeAPIKey = "youtube_api_key"
         case syncIntervalHours = "sync_interval_hours"
         case lastSyncDate = "last_sync_date"
     }
@@ -25,6 +26,15 @@ final class SettingsManager {
     }
 
     var hasAPIKey: Bool { !geminiAPIKey.isEmpty }
+
+    // MARK: - YouTube API Key
+
+    var youtubeAPIKey: String {
+        get { defaults.string(forKey: Key.youtubeAPIKey.rawValue) ?? "" }
+        set { defaults.set(newValue, forKey: Key.youtubeAPIKey.rawValue) }
+    }
+
+    var hasYouTubeKey: Bool { !youtubeAPIKey.isEmpty }
 
     // MARK: - Sync Interval
 

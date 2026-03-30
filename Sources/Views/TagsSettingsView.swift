@@ -11,8 +11,10 @@ struct TagsSettingsView: View {
 
     @State private var newTagName = ""
     @State private var apiKey = SettingsManager.shared.geminiAPIKey
+    @State private var youtubeKey = SettingsManager.shared.youtubeAPIKey
     @State private var syncInterval = SettingsManager.shared.syncIntervalHours
     @State private var showSavedConfirmation = false
+    @State private var showYTSavedConfirmation = false
     @State private var apiUnlocked = false
 
     var body: some View {
@@ -43,6 +45,11 @@ struct TagsSettingsView: View {
 
                     // MARK: - Gemini Settings
                     geminiSettingsSection
+
+                    Divider()
+
+                    // MARK: - YouTube API Key
+                    youtubeSettingsSection
 
                     Divider()
 
@@ -228,6 +235,44 @@ struct TagsSettingsView: View {
     }
 
     // MARK: - Sync Settings
+
+    private var youtubeSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("YouTube API Key (optional)", systemImage: "play.rectangle")
+                .font(.headline)
+
+            Text("Enables YouTube lecture/talk search. Get a key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → enable YouTube Data API v3.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                SecureField("YouTube Data API v3 key", text: $youtubeKey)
+                    .textFieldStyle(.roundedBorder)
+
+                Button("Save") {
+                    SettingsManager.shared.youtubeAPIKey = youtubeKey
+                    showYTSavedConfirmation = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        showYTSavedConfirmation = false
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.geminiBlue)
+            }
+
+            if showYTSavedConfirmation {
+                Label("YouTube key saved!", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .transition(.opacity)
+            } else if SettingsManager.shared.hasYouTubeKey {
+                Label("YouTube key configured", systemImage: "checkmark.shield.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showYTSavedConfirmation)
+    }
 
     private var syncSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {

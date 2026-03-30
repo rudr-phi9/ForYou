@@ -21,7 +21,7 @@
 
 ### Research Aggregation
 - **arXiv Papers** — Fetches the latest papers from arXiv's Atom API sorted by submission date
-- **Technical Blogs** — Discovers blog posts, tutorials, and engineering articles via DuckDuckGo HTML search (no API key needed)
+- **Technical Blogs** — Discovers recent individual blog posts and tutorials via DuckDuckGo (scoped to the past month, listicles like "Top 10" are automatically filtered out)
 - **YouTube Talks** — Searches for lectures, conference talks, and keynotes via YouTube Data API v3 (optional, requires separate API key)
 - **Automatic Deduplication** — Same URL never appears twice in your feed
 - **Domain Exclusion** — Pre-configured blocklist filters out news outlets (CNN, BBC, Reuters, NYT, etc.)
@@ -36,6 +36,7 @@
 ### Feed Management
 - **Tag-Based Organization** — Create unlimited research topics (e.g., "Machine Learning", "Quantum Computing")
 - **Three Feed Filters** — Switch between All, Favorites (⭐), and Saved (🔖) with one click
+- **Importance Score Filter** — Filter feed by minimum importance (4+, 6+, 7+, 8+, 9+) via the chart bar dropdown in the header
 - **Per-Tag Filtering** — Tap a tag pill to see only items matching that topic
 - **Favorite & Bookmark** — Star items you love, bookmark items to read later
 - **Open in Browser** — Jump directly to the original source
@@ -45,6 +46,7 @@
 ### Background Sync
 - **Automatic Sync Loop** — Configurable interval from 30 minutes to 6 hours (default: 2 hours)
 - **Manual Sync** — Click the sync button or right-click → "Sync Now"
+- **Parallel Fetching** — All tags (up to 10) fetch from arXiv, DuckDuckGo, and YouTube simultaneously using Swift Concurrency TaskGroups; within each tag, all sources run in parallel via `async let`
 - **Insert-First Architecture** — Items appear in your feed immediately, then get AI-enriched in the background
 - **Batch Summarization** — Opening the popover triggers summarization of any pending items
 
@@ -112,7 +114,7 @@ The main interface drops down from the menu bar:
 
 ```
 ┌─────────────────────────────────────┐
-│  For You           ⭐ 🔖 🔄 ⚙️     │  ← Header with filter + action icons
+│  For You      ⭐ 🔖 📊 🔄 ⚙️     │  ← Header with filter + action icons
 ├─────────────────────────────────────┤
 │  [All] [ML] [Quantum] [Robotics]   │  ← Horizontal tag pill bar
 ├─────────────────────────────────────┤
@@ -281,15 +283,17 @@ open GeminiResearch.xcodeproj
 2. **Left-click** the icon to open the feed popover
 3. Click the **⚙️ gear icon** to open Settings
 4. **Add your Gemini API key** — paste it and click Save
-5. **Add research topics** — type a topic (e.g., "Machine Learning") and click Add Tag
-6. Click the **🔄 sync button** or right-click → Sync Now
-7. Papers and blogs will start appearing in your feed within seconds
+5. **(Optional) Add YouTube API key** — get one from [Google Cloud Console](https://console.cloud.google.com/apis/credentials), enable YouTube Data API v3, paste the key in Settings
+6. **Add research topics** — type a topic (e.g., "Machine Learning") and click Add Tag
+7. Click the **🔄 sync button** or right-click → Sync Now
+8. Papers, blogs, and talks will start appearing in your feed within seconds
 
 ### Configuration
 
 | Setting | Default | Range | Description |
 |---|---|---|---|
-| API Key | (empty) | — | Google Gemini API key for AI features |
+| Gemini API Key | (empty) | — | Google Gemini API key for AI features |
+| YouTube API Key | (empty) | — | YouTube Data API v3 key for talk/lecture search |
 | Sync Interval | 2 hours | 0.5–6 hours | How often the app checks for new content |
 | Tags | (none) | Unlimited | Research topics to monitor |
 | Domain Exclusions | 15 news sites | Hardcoded | URLs containing these domains are filtered out |

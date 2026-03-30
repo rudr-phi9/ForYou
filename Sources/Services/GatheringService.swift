@@ -62,6 +62,21 @@ final class GatheringService {
         let authors: [String]
         let timestamp: Date
         let tagName: String
+        let thumbnailURL: String?
+
+        init(title: String, url: String, sourceType: ContentType, sourceName: String,
+             rawText: String, authors: [String], timestamp: Date, tagName: String,
+             thumbnailURL: String? = nil) {
+            self.title = title
+            self.url = url
+            self.sourceType = sourceType
+            self.sourceName = sourceName
+            self.rawText = rawText
+            self.authors = authors
+            self.timestamp = timestamp
+            self.tagName = tagName
+            self.thumbnailURL = thumbnailURL
+        }
     }
 
     // MARK: - Core Gathering Logic
@@ -123,6 +138,7 @@ final class GatheringService {
             item.rawTextContent = fetched.rawText
             item.timestamp = fetched.timestamp
             item.authors = fetched.authors
+            item.thumbnailURL = fetched.thumbnailURL
 
             context.insert(item)
             newItems.append(item)
@@ -174,15 +190,17 @@ final class GatheringService {
         }
     }
 
-    /// Fetch arXiv + blogs for a single tag (pure network, returns value types).
+    /// Fetch arXiv + blogs + YouTube for a single tag (pure network, returns value types).
     private nonisolated func fetchForTag(tagName: String) async -> [FetchedItem] {
-        // Run arXiv and blog fetches in parallel for this tag
+        // Run all source fetches in parallel for this tag
         async let arxivItems = fetchArXiv(tagName: tagName)
         async let blogItems = fetchBlogs(tagName: tagName)
+        async let youtubeItems = fetchYouTube(tagName: tagName)
 
         let a = await arxivItems
         let b = await blogItems
-        return a + b
+        let c = await youtubeItems
+        return a + b + c
     }
 
     /// Fetch arXiv papers — pure network, returns value-type results.
@@ -219,6 +237,33 @@ final class GatheringService {
             }
         } catch {
             print("[Gathering] Blog search error for '\(tagName)': \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    /// Fetch YouTube talks — pure network, returns value-type results.
+    private nonisolated func fetchYouTube(tagName: String) async -> [FetchedItem] {
+        let ytKey = SettingsManager.shared.youtubeAPIKey
+        guard !ytKey.isEmpty else {
+            print("[Gathering] YouTube skipped for '\(tagName)' (no API key)")
+            return []
+        }
+        print("[Gathering] Fetching YouTube for '\(tagName)'...")
+        do {
+            let results = try await YouTubeService.shared.search(
+                query: tagName, apiKey: ytKey, maxResults: 4
+            )
+            print("[Gathering] YouTube returned \(results.count) results for '\(tagName)'")
+            return results.map { r in
+                FetchedItem(
+                    title: r.title, url: r.videoURL, sourceType: .talk,
+                    sourceName: r.channelName, rawText: "",
+                    authors: [r.channelName], timestamp: r.publishedAt,
+                    tagName: tagName, thumbnailURL: r.thumbnailURL
+                )
+            }
+        } catch {
+            print("[Gathering] YouTube error for '\(tagName)': \(error.localizedDescription)")
             return []
         }
     }

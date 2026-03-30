@@ -26,9 +26,11 @@ final class GoogleSearchService {
     // MARK: - DuckDuckGo HTML Scraper
 
     private func scrapeDuckDuckGo(query: String, maxResults: Int) async throws -> [SearchResult] {
-        let searchQuery = "\(query) blog OR tutorial OR guide"
+        // Target individual recent posts, exclude listicles/roundups
+        let searchQuery = "\(query) blog post 2026 -\"top 10\" -\"top 5\" -\"top 20\" -\"best of\" -\"you should read\" -\"must read\" -roundup -listicle"
         let encoded = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let urlString = "https://html.duckduckgo.com/html/?q=\(encoded)"
+        // df=m limits results to the past month
+        let urlString = "https://html.duckduckgo.com/html/?q=\(encoded)&df=m"
 
         guard let url = URL(string: urlString) else { return [] }
 
@@ -98,7 +100,8 @@ final class GoogleSearchService {
             guard !title.isEmpty,
                   title.count > 5,
                   urlStr.hasPrefix("http"),
-                  !excludedDomains.contains(where: { urlStr.lowercased().contains($0) }) else {
+                  !excludedDomains.contains(where: { urlStr.lowercased().contains($0) }),
+                  !isListicleTitle(title) else {
                 continue
             }
 
@@ -124,5 +127,23 @@ final class GoogleSearchService {
         }
 
         return results
+    }
+
+    /// Filter out listicle/roundup-style titles to surface individual blog posts.
+    private func isListicleTitle(_ title: String) -> Bool {
+        let lower = title.lowercased()
+        let patterns = [
+            "top \\d+", "best \\d+", "\\d+ best", "\\d+ top",
+            "you should read", "must read", "roundup", "round-up",
+            "listicle", "blogs to follow", "resources you",
+            "essential .* for 202", "\\d+ essential"
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               regex.firstMatch(in: lower, range: NSRange(location: 0, length: lower.utf16.count)) != nil {
+                return true
+            }
+        }
+        return false
     }
 }

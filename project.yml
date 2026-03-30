@@ -1,0 +1,34 @@
+name: GeminiResearch
+options:
+  bundleIdPrefix: com.geminiresearch
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+packages:
+  GoogleGenerativeAI:
+    url: https://github.com/google/generative-ai-swift
+    from: "0.5.6"
+
+targets:
+  GeminiResearch:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sources/GeminiResearch.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.geminiresearch.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_USER_SCRIPT_SANDBOXING: false
+    dependencies:
+      - package: GoogleGenerativeAI
+        product: GoogleGenerativeAI

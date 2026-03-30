@@ -25,7 +25,7 @@ final class GatheringService {
 
     private func startBackgroundLoop() {
         backgroundTask?.cancel()
-        backgroundTask = Task { [weak self] in
+        backgroundTask = Task { @MainActor [weak self] in
             // Initial short delay to let app settle
             try? await Task.sleep(for: .seconds(10))
 
@@ -50,6 +50,7 @@ final class GatheringService {
 
     // MARK: - Core Gathering Logic
 
+    @MainActor
     func performGathering() async {
         guard let modelContainer else {
             print("[Gathering] No model container set.")
@@ -58,7 +59,7 @@ final class GatheringService {
 
         print("[Gathering] Starting sync at \(Date())")
 
-        let context = ModelContext(modelContainer)
+        let context = modelContainer.mainContext
 
         // 1. Read active tags
         let tagDescriptor = FetchDescriptor<Tag>(predicate: #Predicate { $0.isActive })
@@ -67,6 +68,8 @@ final class GatheringService {
             return
         }
 
+        print("[Gathering] Found \(tags.count) active tag(s): \(tags.map(\.name).joined(separator: ", "))")
+
         let gemini = GeminiService.shared
         let settings = SettingsManager.shared
 
@@ -74,6 +77,7 @@ final class GatheringService {
         if !gemini.isConfigured && settings.hasAPIKey {
             gemini.configure(apiKey: settings.geminiAPIKey)
         }
+        print("[Gathering] Gemini configured: \(gemini.isConfigured)")
 
         for tag in tags {
             await gatherForTag(tag, context: context, gemini: gemini)
@@ -100,8 +104,10 @@ final class GatheringService {
     // MARK: - arXiv
 
     private func gatherArXiv(tag: Tag, context: ModelContext, gemini: GeminiService) async {
+        print("[Gathering] Fetching arXiv for '\(tag.name)'...")
         do {
             let results = try await ArXivService.shared.search(query: tag.name, maxResults: 8)
+            print("[Gathering] arXiv returned \(results.count) results for '\(tag.name)'")
 
             for result in results {
                 // Check for duplicates
@@ -127,33 +133,16 @@ final class GatheringService {
                 item.timestamp = result.published
                 item.authors = result.authors
 
-                // AI classification filter
-                if gemini.isConfigured {
-                    if let isResearch = try? await gemini.classifyContent(
-                        title: result.title, url: result.url, snippet: result.summary
-                    ), !isResearch {
-                        item.isDiscarded = true
-                        continue
-                    }
-
-                    // Summarise immediately
-                    await summariseItem(item, gemini: gemini)
-
-                    // Compute importance score
-                    await scoreItem(item, tagName: tag.name)
-                }
-
+                // Always insert first so it appears in the feed
                 context.insert(item)
+                print("[Gathering] Inserted arXiv paper: \(result.title.prefix(60))...")
 
-                // Notify user
-                if item.isSummarized, let summary = item.geminiSummary {
-                    let firstSentence = summary.components(separatedBy: ". ").first ?? summary
-                    NotificationService.shared.notifyNewContent(
-                        itemId: item.id,
-                        tagName: tag.name,
-                        title: item.title,
-                        summaryFirstSentence: firstSentence
-                    )
+                // Then try AI processing (non-blocking — if it fails, item still shows)
+                if gemini.isConfigured {
+                    // Summarise
+                    await summariseItem(item, gemini: gemini)
+                    // Score
+                    await scoreItem(item, tagName: tag.name)
                 }
             }
         } catch {
@@ -164,39 +153,8 @@ final class GatheringService {
     // MARK: - YouTube
 
     private func gatherYouTube(tag: Tag, context: ModelContext, gemini: GeminiService) async {
-        do {
-            // YouTube requires its own API key. For now, reuse the Gemini settings
-            // or set a dedicated YouTube key. Placeholder — skips if no key.
-            let results = try await YouTubeService.shared.search(
-                query: tag.name,
-                apiKey: nil, // TODO: Add YouTube Data API v3 key support
-                maxResults: 3
-            )
-
-            for result in results {
-                let url = result.videoURL
-                let descriptor = FetchDescriptor<ResearchItem>(
-                    predicate: #Predicate { $0.url == url }
-                )
-                if let existing = try? context.fetch(descriptor), !existing.isEmpty {
-                    continue
-                }
-
-                let item = ResearchItem(
-                    title: result.title,
-                    url: result.videoURL,
-                    sourceType: .talk,
-                    sourceName: result.channelName,
-                    tagNames: [tag.name]
-                )
-                item.thumbnailURL = result.thumbnailURL
-                item.timestamp = result.publishedAt
-
-                context.insert(item)
-            }
-        } catch {
-            print("[Gathering] YouTube error for '\(tag.name)': \(error.localizedDescription)")
-        }
+        print("[Gathering] YouTube skipped (no API key configured)")
+        // YouTube requires its own API key — skip silently for now.
     }
 
     // MARK: - Summarisation
@@ -247,10 +205,11 @@ final class GatheringService {
     }
 
     /// Summarise all unsummarised items in the database.
+    @MainActor
     func summariseUnsummarised() async {
         guard let modelContainer else { return }
 
-        let context = ModelContext(modelContainer)
+        let context = modelContainer.mainContext
         let gemini = GeminiService.shared
 
         let descriptor = FetchDescriptor<ResearchItem>(
@@ -272,11 +231,13 @@ final class GatheringService {
         return SettingsManager.shared.excludedDomains.contains { lowered.contains($0) }
     }
 
-    // MARK: - Blogs & Articles (Google Search)
+    // MARK: - Blogs & Articles (DuckDuckGo Search)
 
     private func gatherBlogs(tag: Tag, context: ModelContext, gemini: GeminiService) async {
+        print("[Gathering] Fetching blogs for '\(tag.name)'...")
         do {
             let results = try await GoogleSearchService.shared.search(query: tag.name, maxResults: 6)
+            print("[Gathering] Blog search returned \(results.count) results for '\(tag.name)'")
 
             for result in results {
                 let url = result.url
@@ -298,29 +259,14 @@ final class GatheringService {
                 )
                 item.rawTextContent = result.snippet
 
-                // AI classification filter
-                if gemini.isConfigured {
-                    if let isResearch = try? await gemini.classifyContent(
-                        title: result.title, url: result.url, snippet: result.snippet
-                    ), !isResearch {
-                        item.isDiscarded = true
-                        continue
-                    }
+                // Always insert first so it appears in the feed
+                context.insert(item)
+                print("[Gathering] Inserted blog: \(result.title.prefix(60))...")
 
+                // Then try AI processing (non-blocking)
+                if gemini.isConfigured {
                     await summariseItem(item, gemini: gemini)
                     await scoreItem(item, tagName: tag.name)
-                }
-
-                context.insert(item)
-
-                if item.isSummarized, let summary = item.geminiSummary {
-                    let firstSentence = summary.components(separatedBy: ". ").first ?? summary
-                    NotificationService.shared.notifyNewContent(
-                        itemId: item.id,
-                        tagName: tag.name,
-                        title: item.title,
-                        summaryFirstSentence: firstSentence
-                    )
                 }
             }
         } catch {

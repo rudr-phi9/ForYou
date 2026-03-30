@@ -16,6 +16,7 @@ struct TagsSettingsView: View {
     @State private var showSavedConfirmation = false
     @State private var showYTSavedConfirmation = false
     @State private var apiUnlocked = false
+    @State private var ytUnlocked = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -236,42 +237,86 @@ struct TagsSettingsView: View {
 
     // MARK: - Sync Settings
 
+    private var hasExistingYTKey: Bool {
+        !SettingsManager.shared.youtubeAPIKey.isEmpty
+    }
+
     private var youtubeSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("YouTube API Key (optional)", systemImage: "play.rectangle")
                 .font(.headline)
 
-            Text("Enables YouTube lecture/talk search. Get a key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → enable YouTube Data API v3.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if hasExistingYTKey && !ytUnlocked {
+                HStack(spacing: 8) {
+                    Label("YouTube key configured", systemImage: "checkmark.shield.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
 
-            HStack {
-                SecureField("YouTube Data API v3 key", text: $youtubeKey)
-                    .textFieldStyle(.roundedBorder)
+                    Spacer()
 
-                Button("Save") {
-                    SettingsManager.shared.youtubeAPIKey = youtubeKey
-                    showYTSavedConfirmation = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        showYTSavedConfirmation = false
+                    Button {
+                        authenticateToUnlockYT()
+                    } label: {
+                        Label("API", systemImage: "lock")
+                            .font(.caption)
                     }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.geminiBlue)
-            }
+                .transition(.opacity)
+            } else {
+                Text("Enables YouTube lecture/talk search. Get a key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → enable YouTube Data API v3.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            if showYTSavedConfirmation {
-                Label("YouTube key saved!", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .transition(.opacity)
-            } else if SettingsManager.shared.hasYouTubeKey {
-                Label("YouTube key configured", systemImage: "checkmark.shield.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
+                HStack {
+                    SecureField("YouTube Data API v3 key", text: $youtubeKey)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button("Save") {
+                        SettingsManager.shared.youtubeAPIKey = youtubeKey
+                        showYTSavedConfirmation = true
+                        ytUnlocked = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            showYTSavedConfirmation = false
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.geminiBlue)
+                }
+
+                if showYTSavedConfirmation {
+                    Label("YouTube key saved!", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                        .transition(.opacity)
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: ytUnlocked)
         .animation(.easeInOut(duration: 0.25), value: showYTSavedConfirmation)
+    }
+
+    private func authenticateToUnlockYT() {
+        let context = LAContext()
+        var error: NSError?
+
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            youtubeKey = SettingsManager.shared.youtubeAPIKey
+            ytUnlocked = true
+            return
+        }
+
+        context.evaluatePolicy(
+            .deviceOwnerAuthentication,
+            localizedReason: "Unlock to view or change your YouTube API key"
+        ) { success, _ in
+            DispatchQueue.main.async {
+                if success {
+                    youtubeKey = SettingsManager.shared.youtubeAPIKey
+                    ytUnlocked = true
+                }
+            }
+        }
     }
 
     private var syncSettingsSection: some View {

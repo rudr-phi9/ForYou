@@ -184,7 +184,9 @@ struct DetailView: View {
                             )
                         } else {
                             HStack(spacing: 6) {
-                                ProgressView().controlSize(.small)
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .frame(width: 12, height: 12)
                                 Text("Awaiting analysis…")
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)

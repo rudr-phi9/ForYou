@@ -46,6 +46,8 @@ struct ContentCardView: View {
                         previewPlaceholder
                     default:
                         ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 16, height: 16)
                             .frame(maxWidth: .infinity, maxHeight: 80)
                     }
                 }
@@ -134,6 +136,7 @@ struct ContentCardView: View {
                 HStack(spacing: 4) {
                     ProgressView()
                         .controlSize(.small)
+                        .frame(width: 12, height: 12)
                     Text("Awaiting analysis…")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)

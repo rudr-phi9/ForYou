@@ -122,7 +122,13 @@ struct PopoverView: View {
             }
         }
         .frame(width: 400, height: 580)
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack {
+                Color.clear
+                FluidBackground()
+                Rectangle().fill(.thinMaterial)
+            }
+        }
         .sheet(isPresented: $showSettings) {
             TagsSettingsView()
                 .frame(width: 420, height: 480)

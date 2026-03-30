@@ -8,7 +8,7 @@ struct ContentCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // MARK: - Header: Source + Timestamp + Importance
+            // MARK: - Header: Source + Timestamp + Glowing Orb
             HStack(spacing: 6) {
                 Image(systemName: item.sourceType.iconName)
                     .font(.caption)
@@ -21,20 +21,9 @@ struct ContentCardView: View {
 
                 Spacer()
 
-                // Importance badge
+                // Glowing orb importance indicator
                 if item.importanceScore > 0 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 8))
-                        Text(String(format: "%.1f", item.importanceScore))
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                    }
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .foregroundStyle(.white)
-                    .background(importanceColor)
-                    .clipShape(Capsule())
+                    GlowingOrb(score: item.importanceScore)
                 }
 
                 Text(item.formattedTimestamp)
@@ -91,7 +80,7 @@ struct ContentCardView: View {
                         Text("#\(tag.replacingOccurrences(of: " ", with: "_"))")
                             .font(.caption2)
                             .fontWeight(.medium)
-                            .foregroundStyle(.geminiBlue)
+                            .foregroundStyle(.neonHighlight)
                     }
                 }
             }
@@ -122,7 +111,7 @@ struct ContentCardView: View {
                                 HStack(alignment: .top, spacing: 4) {
                                     Text("•")
                                         .font(.caption)
-                                        .foregroundStyle(.geminiPurple)
+                                        .foregroundStyle(.neonHighlight)
                                     Text(takeaway)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -134,8 +123,12 @@ struct ContentCardView: View {
                 }
                 .padding(8)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(LinearGradient.geminiVertical)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(LinearGradient.glassEdge, lineWidth: 0.5)
                 )
             } else if !item.isDiscarded {
                 HStack(spacing: 4) {
@@ -148,52 +141,52 @@ struct ContentCardView: View {
             }
 
             // MARK: - Footer Actions
-            HStack(spacing: 12) {
-                Button {
+            HStack(spacing: 8) {
+                GlassActionButton(
+                    systemName: "arrow.up.right.square",
+                    isActive: false,
+                    activeColor: .neonHighlight,
+                    inactiveColor: .neonHighlight,
+                    help: "Open Original"
+                ) {
                     if let url = item.sourceURL {
                         NSWorkspace.shared.open(url)
                     }
-                } label: {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.geminiBlue)
-                .help("Open Original")
 
-                Button {
+                GlassActionButton(
+                    systemName: item.isFavorited ? "star.fill" : "star",
+                    isActive: item.isFavorited,
+                    activeColor: .yellow,
+                    inactiveColor: .secondary,
+                    help: item.isFavorited ? "Remove from Favorites" : "Favorite"
+                ) {
                     item.isFavorited.toggle()
-                } label: {
-                    Image(systemName: item.isFavorited ? "star.fill" : "star")
-                        .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(item.isFavorited ? .yellow : .secondary)
-                .help(item.isFavorited ? "Remove from Favorites" : "Favorite")
 
-                Button {
+                GlassActionButton(
+                    systemName: item.isBookmarked ? "bookmark.fill" : "bookmark",
+                    isActive: item.isBookmarked,
+                    activeColor: .geminiPurple,
+                    inactiveColor: .secondary,
+                    help: item.isBookmarked ? "Unsave" : "Save"
+                ) {
                     item.isBookmarked.toggle()
-                } label: {
-                    Image(systemName: item.isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(item.isBookmarked ? .geminiPurple : .secondary)
-                .help(item.isBookmarked ? "Unsave" : "Save")
 
-                Button {
+                GlassActionButton(
+                    systemName: "square.and.arrow.up",
+                    isActive: false,
+                    activeColor: .secondary,
+                    inactiveColor: .secondary,
+                    help: "Copy Link"
+                ) {
                     if let url = item.sourceURL {
                         let pasteboard = NSPasteboard.general
                         pasteboard.clearContents()
                         pasteboard.setString(url.absoluteString, forType: .string)
                     }
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Copy Link")
 
                 Spacer()
             }
@@ -201,17 +194,6 @@ struct ContentCardView: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .geminiCard()
-    }
-
-    // MARK: - Importance Color
-
-    private var importanceColor: Color {
-        switch item.importanceScore {
-        case 8...10: return .green
-        case 6..<8: return .geminiBlue
-        case 4..<6: return .orange
-        default: return .gray
-        }
     }
 
     private var previewPlaceholder: some View {

@@ -16,3 +16,9 @@ build/
 # Swift Package Manager
 .build/
 Packages/
+
+# Generated Xcode project (rebuilt via xcodegen)
+*.xcodeproj
+
+# Release builds
+release/

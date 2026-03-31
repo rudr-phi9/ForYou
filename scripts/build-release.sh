@@ -15,10 +15,11 @@ echo "==> Generating Xcode project..."
 xcodegen generate
 
 echo "==> Resolving Swift packages..."
-xcodebuild -resolvePackageDependencies -scheme "$SCHEME" -quiet
+xcodebuild -resolvePackageDependencies -project "$APP_NAME.xcodeproj" -scheme "$SCHEME" -quiet
 
 echo "==> Building release..."
 xcodebuild \
+  -project "$APP_NAME.xcodeproj" \
   -scheme "$SCHEME" \
   -configuration Release \
   -derivedDataPath "$OUTPUT_DIR/DerivedData" \

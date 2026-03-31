@@ -11,6 +11,8 @@ struct ChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var inputText = ""
     @State private var isThinking = false
+    @State private var streamingMessageId: UUID? = nil
+    @State private var streamingDisplayText = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,8 +46,11 @@ struct ChatView: View {
                 ScrollView(.vertical, showsIndicators: true) {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(messages) { msg in
-                            ChatBubble(message: msg)
-                                .id(msg.id)
+                            ChatBubble(
+                                message: msg,
+                                streamingText: msg.id == streamingMessageId ? streamingDisplayText : nil
+                            )
+                            .id(msg.id)
                         }
 
                         if isThinking {
@@ -61,6 +66,13 @@ struct ChatView: View {
                 }
                 .onChange(of: isThinking) { _, _ in
                     scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: streamingDisplayText) { _, _ in
+                    if let id = streamingMessageId {
+                        withAnimation(.easeOut(duration: 0.1)) {
+                            proxy.scrollTo(id, anchor: .bottom)
+                        }
+                    }
                 }
             }
 
@@ -162,7 +174,23 @@ struct ChatView: View {
                 let assistantMsg = ChatMessage(itemURL: item.url, role: "assistant", content: response)
                 modelContext.insert(assistantMsg)
                 messages.append(assistantMsg)
+                isThinking = false
+
+                // Typewriter animation: reveal character by character
+                streamingMessageId = assistantMsg.id
+                streamingDisplayText = ""
+                let fullText = response
+                for (i, char) in fullText.enumerated() {
+                    streamingDisplayText.append(char)
+                    // Variable speed: faster for spaces/punctuation
+                    let delay: UInt64 = char.isWhitespace ? 2_000_000 : 8_000_000
+                    if i % 3 == 0 { // yield every 3 chars for smoother UI
+                        try? await Task.sleep(nanoseconds: delay)
+                    }
+                }
+                streamingMessageId = nil
             } catch {
+                isThinking = false
                 let errorMsg = ChatMessage(
                     itemURL: item.url,
                     role: "assistant",
@@ -171,21 +199,34 @@ struct ChatView: View {
                 modelContext.insert(errorMsg)
                 messages.append(errorMsg)
             }
-            isThinking = false
         }
     }
 }
 
-// MARK: - Chat Bubble
+// MARK: - Chat Bubble (Markdown + Typewriter)
 
 struct ChatBubble: View {
     let message: ChatMessage
+    var streamingText: String? = nil  // non-nil if currently streaming
+
+    /// The text to display — either streaming partial or full content
+    private var displayContent: String {
+        streamingText ?? message.content
+    }
+
+    /// Parse Markdown into AttributedString
+    private var renderedMarkdown: AttributedString {
+        (try? AttributedString(
+            markdown: displayContent,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(displayContent)
+    }
 
     var body: some View {
         HStack {
             if message.isUser { Spacer(minLength: 60) }
 
-            Text(message.content)
+            Text(renderedMarkdown)
                 .font(.system(.body, design: .default))
                 .foregroundStyle(message.isUser ? .white : .primary)
                 .padding(.horizontal, 12)

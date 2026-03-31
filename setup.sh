@@ -2,7 +2,7 @@
 set -e
 
 # ──────────────────────────────────────────────────────────────
-#  Gemini Research — Setup Script
+  For You — Setup Script
 #  Installs dependencies and generates the Xcode project.
 # ──────────────────────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "═══════════════════════════════════════════════════════════"
-echo "  Gemini Research — macOS Menubar App Setup"
+echo "  For You — macOS Menubar App Setup"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 
@@ -46,14 +46,14 @@ echo "→ Generating Xcode project from project.yml..."
 xcodegen generate
 
 echo ""
-echo "✓ Xcode project generated: GeminiResearch.xcodeproj"
+echo "✓ Xcode project generated: ForYou.xcodeproj"
 
 # ── 5. Resolve Swift Package Manager dependencies ────────────
 echo ""
 echo "→ Resolving Swift packages (Google Generative AI SDK)..."
 xcodebuild -resolvePackageDependencies \
-    -project GeminiResearch.xcodeproj \
-    -scheme GeminiResearch \
+    -project ForYou.xcodeproj \
+    -scheme ForYou \
     2>&1 | grep -E "(Resolved|Fetching|Computing|resolved|error)" || true
 
 echo ""
@@ -62,7 +62,7 @@ echo "✓ Swift packages resolved."
 # ── 6. Open in Xcode ────────────────────────────────────────
 echo ""
 echo "→ Opening in Xcode..."
-open GeminiResearch.xcodeproj
+open ForYou.xcodeproj
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"

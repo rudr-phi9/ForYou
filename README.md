@@ -1,11 +1,44 @@
 <p align="center">
-  <img src="https://developer.apple.com/sf-symbols/" width="0" height="0" />
   <h1 align="center">✦ For You</h1>
   <p align="center"><strong>AI-Powered Research Aggregator for macOS</strong></p>
   <p align="center">
-    A native macOS menu bar application that autonomously discovers, summarizes, and scores research content from arXiv, technical blogs, and YouTube — powered by Google Gemini 2.5 Pro.
+    A native macOS menu bar application that autonomously discovers, summarizes, and scores research content from arXiv, technical blogs, and YouTube — powered by Google Gemini AI.
+  </p>
+  <p align="center">
+    <a href="#installation"><strong>Install via Homebrew</strong></a> · <a href="#getting-started">Getting Started</a> · <a href="DESIGN.md">Design Docs</a>
   </p>
 </p>
+
+---
+
+## Installation
+
+### Homebrew (Recommended)
+
+```bash
+brew tap rudraksh/foryou
+brew install --cask foryou
+```
+
+### Manual Build
+
+Requires **macOS 14.0+**, **Xcode 15+**, and **Homebrew**.
+
+```bash
+git clone https://github.com/rudraksh/ForYou.git
+cd ForYou
+
+# Install XcodeGen if needed
+brew install xcodegen
+
+# Build
+xcodegen generate
+xcodebuild -scheme ForYou -configuration Release build
+
+# The app is at:
+# ~/Library/Developer/Xcode/DerivedData/ForYou-*/Build/Products/Release/ForYou.app
+# Drag it to /Applications
+```
 
 ---
 
@@ -23,15 +56,24 @@
 - **arXiv Papers** — Fetches the latest papers from arXiv's Atom API sorted by submission date
 - **Technical Blogs** — Discovers recent individual blog posts and tutorials via DuckDuckGo (scoped to the past month, listicles like "Top 10" are automatically filtered out)
 - **YouTube Talks** — Searches for lectures, conference talks, and keynotes via YouTube Data API v3 (optional, requires separate API key)
+- **AI Quality Gate** — LLM-powered filter automatically discards memes, clickbait, listicles, and non-technical content before it reaches your feed
 - **Automatic Deduplication** — Same URL never appears twice in your feed
 - **Domain Exclusion** — Pre-configured blocklist filters out news outlets (CNN, BBC, Reuters, NYT, etc.)
 
 ### AI-Powered Intelligence
-- **Gemini 2.5 Pro Summarization** — Every item gets a 4-sentence summary tailored to its content type (paper vs. blog vs. talk)
+- **Gemini Summarization** — Every item gets a 4-sentence summary tailored to its content type (paper vs. blog vs. talk)
 - **Key Takeaways** — 3 bullet-point takeaways extracted from each piece of content
 - **Importance Scoring (0–10)** — AI estimates author credibility (h-index for papers), content quality, and relevance to your tags
+- **Single-Call Enrichment** — Summary, takeaways, and scoring happen in one API call to minimize costs
 - **Content Classification** — Distinguishes research from general news to keep your feed focused
 - **Fallback Web Scraping** — If raw text isn't available, scrapes the URL to extract readable content for summarization
+
+### Per-Item Chat
+- **Deep-Dive Conversations** — Click "Chat" on any item to open a Gemini-powered Q&A thread about that specific paper, blog, or talk
+- **Persistent History** — Conversations are saved per-item and restored when you return
+- **On-Demand Content Fetch** — If the original text wasn't captured during sync, it's fetched when you start chatting
+- **Markdown Rendering** — Responses render bold, italic, lists, and code properly
+- **Typewriter Animation** — Responses stream in character-by-character with free scroll during animation
 
 ### Feed Management
 - **Tag-Based Organization** — Create unlimited research topics (e.g., "Machine Learning", "Quantum Computing")
@@ -62,12 +104,13 @@
 ```
 For You
 ├── App Layer
-│   ├── GeminiResearchApp.swift     @main entry, Settings scene
+│   ├── ForYouApp.swift             @main entry, Settings scene
 │   └── AppDelegate.swift           Menu bar setup, popover, lifecycle
 │
 ├── Models
 │   ├── Tag.swift                   SwiftData model for research topics
 │   ├── ResearchItem.swift          SwiftData model for feed items
+│   ├── ChatMessage.swift           SwiftData model for per-item chat threads
 │   ├── AppState.swift              Observable shared UI state
 │   └── ContentType.swift           Paper / Blog / Talk / Unknown enum
 │
@@ -85,6 +128,7 @@ For You
 │   ├── PopoverView.swift           Main feed (header, tag bar, cards)
 │   ├── ContentCardView.swift       Individual feed item card
 │   ├── DetailView.swift            Expanded item sheet
+│   ├── ChatView.swift              Per-item Gemini chat thread
 │   ├── TagsSettingsView.swift      Preferences (tags, API key, sync)
 │   └── TagPillView.swift           Reusable filter pill component
 │
@@ -240,63 +284,25 @@ All content cards use the `.geminiCard()` modifier:
 
 ## Getting Started
 
-### Prerequisites
-
-- **macOS 14.0** (Sonoma) or later
-- **Xcode 15+** with Swift 5.9
-- **Homebrew** (for XcodeGen)
-- A **Google Gemini API key** — free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-
-### Installation
-
-```bash
-# 1. Clone and enter the project
-cd /path/to/GeminiResearch
-
-# 2. Run the setup script
-chmod +x setup.sh
-./setup.sh
-
-# 3. Wait for Swift Package Manager to resolve GoogleGenerativeAI
-# 4. Press ⌘R in Xcode to build and run
-```
-
-Or manually:
-
-```bash
-# Install XcodeGen
-brew install xcodegen
-
-# Generate Xcode project from project.yml
-xcodegen generate
-
-# Resolve SPM packages
-xcodebuild -resolvePackageDependencies -scheme GeminiResearch
-
-# Open in Xcode
-open GeminiResearch.xcodeproj
-```
-
-### First Launch
-
 1. The app appears as a **✦ sparkle icon** in your menu bar (no Dock icon)
 2. **Left-click** the icon to open the feed popover
 3. Click the **⚙️ gear icon** to open Settings
-4. **Add your Gemini API key** — paste it and click Save
-5. **(Optional) Add YouTube API key** — get one from [Google Cloud Console](https://console.cloud.google.com/apis/credentials), enable YouTube Data API v3, paste the key in Settings
+4. **Add your Gemini API key** — paste it and click Save (get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+5. **(Optional) Add YouTube API key** — [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → enable YouTube Data API v3 → create API key
 6. **Add research topics** — type a topic (e.g., "Machine Learning") and click Add Tag
 7. Click the **🔄 sync button** or right-click → Sync Now
 8. Papers, blogs, and talks will start appearing in your feed within seconds
+
+> **API keys are stored locally** in your macOS UserDefaults and protected behind Touch ID. They are never transmitted anywhere except to Google's API endpoints.
 
 ### Configuration
 
 | Setting | Default | Range | Description |
 |---|---|---|---|
-| Gemini API Key | (empty) | — | Google Gemini API key for AI features |
-| YouTube API Key | (empty) | — | YouTube Data API v3 key for talk/lecture search |
+| Gemini API Key | — | — | Required. Powers AI summaries, scoring, chat, and quality filtering |
+| YouTube API Key | — | — | Optional. Enables YouTube lecture/talk search |
 | Sync Interval | 2 hours | 0.5–6 hours | How often the app checks for new content |
-| Tags | (none) | Unlimited | Research topics to monitor |
-| Domain Exclusions | 15 news sites | Hardcoded | URLs containing these domains are filtered out |
+| Tags | — | Unlimited | Research topics to monitor |
 
 ---
 
@@ -317,7 +323,7 @@ open GeminiResearch.xcodeproj
 | Language | Swift 5.9 |
 | UI Framework | SwiftUI |
 | Data Persistence | SwiftData (SQLite-backed) |
-| AI Engine | Google Generative AI SDK (`gemini-3.1-pro-preview`) |
+| AI Engine | Google Generative AI SDK (`gemini-2.5-flash-lite`) |
 | Package Manager | Swift Package Manager via XcodeGen |
 | Notifications | UNUserNotificationCenter |
 | Authentication | LocalAuthentication (Touch ID) |
@@ -338,6 +344,33 @@ open GeminiResearch.xcodeproj
 
 ---
 
+## Privacy & Security
+
+- **No telemetry, no analytics, no tracking** — the app talks only to the APIs you configure
+- **API keys stored locally** in macOS UserDefaults, protected behind Touch ID / system password
+- **Keys are never hardcoded** in source — verified across all commits in git history
+- **Sandboxed** — runs in macOS App Sandbox with only network + notification entitlements
+- **No server component** — everything runs locally on your Mac
+
+---
+
 ## License
 
-This project is for personal use.
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## Contributing
+
+Contributions welcome! Please open an issue first to discuss what you'd like to change.
+
+```bash
+# Development setup
+git clone https://github.com/rudraksh/ForYou.git
+cd ForYou
+brew install xcodegen
+xcodegen generate
+open ForYou.xcodeproj
+```
+
+After adding new `.swift` files, re-run `xcodegen generate` to update the Xcode project.

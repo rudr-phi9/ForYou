@@ -21,8 +21,8 @@ final class SettingsManager {
     /// ✦  SET YOUR GEMINI API KEY HERE  (or in the app UI)  ✦
     /// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     var geminiAPIKey: String {
-        get { defaults.string(forKey: Key.geminiAPIKey.rawValue) ?? "" }
-        set { defaults.set(newValue, forKey: Key.geminiAPIKey.rawValue) }
+        get { (defaults.string(forKey: Key.geminiAPIKey.rawValue) ?? "").trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ","))) }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ","))), forKey: Key.geminiAPIKey.rawValue) }
     }
 
     var hasAPIKey: Bool { !geminiAPIKey.isEmpty }
@@ -30,8 +30,8 @@ final class SettingsManager {
     // MARK: - YouTube API Key
 
     var youtubeAPIKey: String {
-        get { defaults.string(forKey: Key.youtubeAPIKey.rawValue) ?? "" }
-        set { defaults.set(newValue, forKey: Key.youtubeAPIKey.rawValue) }
+        get { (defaults.string(forKey: Key.youtubeAPIKey.rawValue) ?? "").trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ","))) }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ","))), forKey: Key.youtubeAPIKey.rawValue) }
     }
 
     var hasYouTubeKey: Bool { !youtubeAPIKey.isEmpty }

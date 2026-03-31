@@ -17,22 +17,57 @@ final class YouTubeService {
     /// Search YouTube for lectures/talks matching `query`.
     /// Set `apiKey` to a valid YouTube Data API v3 key.
     func search(query: String, apiKey: String?, maxResults: Int = 5) async throws -> [YouTubeResult] {
-        guard let apiKey, !apiKey.isEmpty else { return [] }
+        guard let apiKey, !apiKey.isEmpty else {
+            print("[YouTube] No API key provided, skipping")
+            return []
+        }
 
         let academicQuery = "\(query) lecture OR conference talk OR keynote"
-        let encoded = academicQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
 
-        let urlString = "https://www.googleapis.com/youtube/v3/search"
-            + "?part=snippet&type=video&order=date&maxResults=\(maxResults)"
-            + "&q=\(encoded)&key=\(apiKey)"
-            + "&publishedAfter=\(iso8601DaysAgo(7))"
+        // Build URL with properly encoded components
+        var components = URLComponents(string: "https://www.googleapis.com/youtube/v3/search")!
+        components.queryItems = [
+            URLQueryItem(name: "part", value: "snippet"),
+            URLQueryItem(name: "type", value: "video"),
+            URLQueryItem(name: "order", value: "date"),
+            URLQueryItem(name: "maxResults", value: "\(maxResults)"),
+            URLQueryItem(name: "q", value: academicQuery),
+            URLQueryItem(name: "key", value: apiKey),
+            URLQueryItem(name: "publishedAfter", value: iso8601DaysAgo(7)),
+        ]
 
-        guard let url = URL(string: urlString) else { return [] }
+        guard let url = components.url else {
+            print("[YouTube] Failed to construct URL")
+            return []
+        }
 
-        let (data, _) = try await URLSession.shared.data(from: url)
+        print("[YouTube] Requesting: \(academicQuery)")
+        let (data, response) = try await URLSession.shared.data(from: url)
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let items = json["items"] as? [[String: Any]] else { return [] }
+        // Log HTTP status
+        if let httpResponse = response as? HTTPURLResponse {
+            print("[YouTube] HTTP status: \(httpResponse.statusCode)")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[YouTube] Failed to parse JSON response")
+            return []
+        }
+
+        // Check for API error response
+        if let error = json["error"] as? [String: Any] {
+            let code = error["code"] as? Int ?? -1
+            let message = error["message"] as? String ?? "Unknown error"
+            print("[YouTube] API ERROR (\(code)): \(message)")
+            return []
+        }
+
+        guard let items = json["items"] as? [[String: Any]] else {
+            print("[YouTube] No 'items' key in response. Keys: \(json.keys.joined(separator: ", "))")
+            return []
+        }
+
+        print("[YouTube] Got \(items.count) results")
 
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]

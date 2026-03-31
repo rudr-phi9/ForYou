@@ -148,11 +148,10 @@ final class GatheringService {
         try? context.save()
         print("[Gathering] Inserted \(newItems.count) new items into database")
 
-        // 4. AI enrichment (summarise + score) — can run after items are visible
+        // 4. AI enrichment (summary + score in ONE API call via enrichContent)
         if gemini.isConfigured {
             for item in newItems {
                 await summariseItem(item, gemini: gemini)
-                await scoreItem(item, tagName: item.tagNames.first ?? "")
             }
             try? context.save()
         }
@@ -289,29 +288,26 @@ final class GatheringService {
             }
         }
 
-        // Attempt Gemini summary
+        // Attempt combined enrich (summary + score in one API call)
         do {
             if !textContent.isEmpty {
-                let summary = try await gemini.summariseText(
+                let enriched = try await gemini.enrichContent(
                     title: item.title,
                     contentType: item.sourceType,
-                    fullText: textContent
+                    fullText: textContent,
+                    authors: item.authors,
+                    tagName: item.tagNames.first ?? ""
                 )
-                item.geminiSummary = summary.text
-                item.keyTakeaways = summary.keyTakeaways
+                item.geminiSummary = enriched.summary.text
+                item.keyTakeaways = enriched.summary.keyTakeaways
                 item.isSummarized = true
-
-                // Score if not yet scored
-                if item.importanceScore == 0 {
-                    await scoreItem(item, tagName: item.tagNames.first ?? "")
-                }
+                item.importanceScore = enriched.importanceScore
+                item.authorMetric = enriched.authorMetric
             } else {
-                // Fallback: screenshot analysis would go here.
-                // For now, mark as unsummarized so it can be retried.
                 print("[Gathering] No text content for \(item.title)")
             }
         } catch {
-            print("[Gathering] Gemini summary error: \(error.localizedDescription)")
+            print("[Gathering] Gemini enrich error: \(error.localizedDescription)")
         }
     }
 
@@ -342,17 +338,5 @@ final class GatheringService {
         return SettingsManager.shared.excludedDomains.contains { lowered.contains($0) }
     }
 
-    // MARK: - Importance Scoring
-
-    private func scoreItem(_ item: ResearchItem, tagName: String) async {
-        let result = await ImportanceScorer.shared.score(
-            title: item.title,
-            sourceType: item.sourceType,
-            authors: item.authors,
-            textSnippet: item.rawTextContent ?? item.geminiSummary ?? "",
-            tagName: tagName
-        )
-        item.importanceScore = result.score
-        item.authorMetric = result.authorMetric
-    }
 }
+

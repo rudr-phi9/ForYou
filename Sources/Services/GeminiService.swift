@@ -18,7 +18,7 @@ final class GeminiService {
             return
         }
         model = GenerativeModel(
-            name: "gemini-3.1-pro-preview",
+            name: "gemini-2.5-flash-lite",
             apiKey: apiKey
         )
     }
@@ -76,7 +76,7 @@ final class GeminiService {
     ) async throws -> Summary {
         guard let model else { throw GeminiError.notConfigured }
 
-        let truncated = String(fullText.prefix(28_000)) // stay under token limits
+        let truncated = String(fullText.prefix(6_000)) // reduced from 28k to save tokens
 
         let prompt: String
         switch contentType {
@@ -213,6 +213,104 @@ final class GeminiService {
         if summaryText.isEmpty { summaryText = raw }
 
         return Summary(text: summaryText, keyTakeaways: takeaways)
+    }
+
+    // MARK: - Combined Enrich (summary + score in ONE API call)
+
+    struct EnrichedResult {
+        let summary: Summary
+        let importanceScore: Double
+        let authorMetric: String
+    }
+
+    /// Single API call that returns summary, key takeaways, importance score, and author metric.
+    /// Use this instead of separate summariseText + ImportanceScorer.score calls to halve costs.
+    func enrichContent(
+        title: String,
+        contentType: ContentType,
+        fullText: String,
+        authors: [String],
+        tagName: String
+    ) async throws -> EnrichedResult {
+        guard let model else { throw GeminiError.notConfigured }
+
+        let truncated = String(fullText.prefix(6_000))
+        let authorLine = authors.isEmpty ? "Unknown" : authors.joined(separator: ", ")
+
+        let typeLabel: String
+        switch contentType {
+        case .paper: typeLabel = "research paper"
+        case .blog:  typeLabel = "technical blog post"
+        case .talk:  typeLabel = "lecture/conference talk"
+        default:     typeLabel = "article"
+        }
+
+        let prompt = """
+        You are a research assistant evaluating content for a researcher interested in "\(tagName)".
+
+        Analyze this \(typeLabel):
+        Title: \(title)
+        Authors/Source: \(authorLine)
+        Content:
+        \(truncated)
+
+        Respond in EXACTLY this format (no extra text):
+        SUMMARY:
+        <4-sentence summary>
+
+        KEY TAKEAWAYS:
+        • <takeaway 1>
+        • <takeaway 2>
+        • <takeaway 3>
+
+        SCORE: <integer 1-10>
+        AUTHORS: <one-line credibility note, e.g. "Well-known group, est. h-index 35" or "Independent blogger">
+        """
+
+        let response = try await model.generateContent(prompt)
+        let raw = response.text ?? ""
+        return parseEnrichedResponse(raw)
+    }
+
+    private func parseEnrichedResponse(_ raw: String) -> EnrichedResult {
+        var summaryText = ""
+        var takeaways: [String] = []
+        var score = 5.0
+        var authorMetric = ""
+
+        let lines = raw.components(separatedBy: "\n")
+        var inSummary = false
+        var inTakeaways = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.uppercased().hasPrefix("SUMMARY") { inSummary = true; inTakeaways = false; continue }
+            if trimmed.uppercased().hasPrefix("KEY TAKEAWAY") { inSummary = false; inTakeaways = true; continue }
+            if trimmed.uppercased().hasPrefix("SCORE:") {
+                inSummary = false; inTakeaways = false
+                let numStr = trimmed.dropFirst(6).trimmingCharacters(in: .whitespaces)
+                if let parsed = Double(numStr.prefix(while: { $0.isNumber || $0 == "." })) {
+                    score = min(10, max(0, parsed))
+                }
+                continue
+            }
+            if trimmed.uppercased().hasPrefix("AUTHORS:") {
+                inSummary = false; inTakeaways = false
+                authorMetric = String(trimmed.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                continue
+            }
+            if inSummary && !trimmed.isEmpty {
+                summaryText += (summaryText.isEmpty ? "" : " ") + trimmed
+            }
+            if inTakeaways && trimmed.hasPrefix("•") {
+                let cleaned = trimmed.dropFirst().trimmingCharacters(in: .whitespaces)
+                if !cleaned.isEmpty { takeaways.append(cleaned) }
+            }
+        }
+
+        if summaryText.isEmpty { summaryText = raw }
+        let summary = Summary(text: summaryText, keyTakeaways: takeaways)
+        return EnrichedResult(summary: summary, importanceScore: score, authorMetric: authorMetric)
     }
 
     // MARK: - Errors

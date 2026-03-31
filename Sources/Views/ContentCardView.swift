@@ -10,26 +10,26 @@ struct ContentCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // MARK: - Header: Source + Timestamp + Glowing Orb
+            // MARK: - Header: Source + Timestamp + Signal Ring
             HStack(spacing: 6) {
                 Image(systemName: item.sourceType.iconName)
-                    .font(.caption)
+                    .font(GFont.caption)
                     .foregroundStyle(.secondary)
 
                 Text(item.sourceName)
-                    .font(.caption)
+                    .font(GFont.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 Spacer()
 
-                // Glowing orb importance indicator
+                // Signal ring importance indicator
                 if item.importanceScore > 0 {
-                    GlowingOrb(score: item.importanceScore)
+                    SignalRing(score: item.importanceScore)
                 }
 
                 Text(item.formattedTimestamp)
-                    .font(.caption2)
+                    .font(GFont.caption2)
                     .foregroundStyle(.tertiary)
             }
 
@@ -73,7 +73,7 @@ struct ContentCardView: View {
 
             // MARK: - Title
             Text(item.title)
-                .font(.system(.subheadline, weight: .semibold))
+                .font(GFont.cardTitle)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -82,9 +82,9 @@ struct ContentCardView: View {
                 HStack(spacing: 4) {
                     ForEach(item.tagNames, id: \.self) { tag in
                         Text("#\(tag.replacingOccurrences(of: " ", with: "_"))")
-                            .font(.caption2)
+                            .font(GFont.caption2)
                             .fontWeight(.medium)
-                            .foregroundStyle(.neonHighlight)
+                            .foregroundStyle(.geminiBlue)
                     }
                 }
             }
@@ -96,16 +96,15 @@ struct ContentCardView: View {
                         Text(item.sourceType == .talk
                              ? "Summary (Visual/Audio Analysis)"
                              : "Summary (Textual Analysis)")
-                            .font(.caption2)
+                            .font(GFont.caption2)
                             .fontWeight(.semibold)
                     } icon: {
-                        Image(systemName: "sparkles")
-                            .font(.caption2)
+                        GeminiSparkle(size: 11)
                     }
                     .foregroundStyle(LinearGradient.gemini)
 
                     Text(summary)
-                        .font(.caption)
+                        .font(GFont.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(6)
 
@@ -114,10 +113,10 @@ struct ContentCardView: View {
                             ForEach(item.keyTakeaways, id: \.self) { takeaway in
                                 HStack(alignment: .top, spacing: 4) {
                                     Text("•")
-                                        .font(.caption)
-                                        .foregroundStyle(.neonHighlight)
+                                        .font(GFont.caption)
+                                        .foregroundStyle(.geminiBlue)
                                     Text(takeaway)
-                                        .font(.caption)
+                                        .font(GFont.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
                                 }
@@ -127,22 +126,15 @@ struct ContentCardView: View {
                 }
                 .padding(8)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.regularMaterial)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(LinearGradient.glassEdge, lineWidth: 0.5)
                 )
             } else if !item.isDiscarded {
-                HStack(spacing: 4) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 12, height: 12)
-                    Text("Awaiting analysis…")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                ShimmerSkeleton()
             }
 
             // MARK: - Footer Actions

@@ -27,9 +27,9 @@ struct ChatView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Chat")
-                        .font(.system(.headline, weight: .bold))
+                        .font(GFont.title(.bold))
                     Text(item.title)
-                        .font(.caption2)
+                        .font(GFont.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -62,7 +62,7 @@ struct ChatView: View {
             HStack(spacing: 8) {
                 TextField("Ask about this paper…", text: $inputText)
                     .textFieldStyle(.plain)
-                    .font(.body)
+                    .font(GFont.chat)
                     .onSubmit { sendMessage() }
 
                 Button(action: sendMessage) {
@@ -228,31 +228,28 @@ struct ChatBubble: View {
     }
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 6) {
             if message.isUser { Spacer(minLength: 60) }
 
+            if !message.isUser {
+                GeminiSparkle(size: 12)
+                    .padding(.top, 4)
+            }
+
             Text(renderedMarkdown)
-                .font(.system(.body, design: .default))
-                .foregroundStyle(message.isUser ? .white : .primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .font(GFont.chat)
+                .foregroundStyle(message.isUser ? .primary : .primary)
+                .padding(.horizontal, message.isUser ? 12 : 0)
+                .padding(.vertical, message.isUser ? 8 : 2)
                 .background {
                     if message.isUser {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(LinearGradient.gemini)
-                    } else {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(LinearGradient.glassEdge, lineWidth: 0.5)
-                            )
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.surfaceTonalLight)
                     }
                 }
-                .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
                 .textSelection(.enabled)
 
-            if !message.isUser { Spacer(minLength: 60) }
+            if !message.isUser { Spacer(minLength: 40) }
         }
     }
 }
@@ -263,36 +260,38 @@ struct ThinkingIndicator: View {
     @State private var animate = false
 
     var body: some View {
-        HStack(spacing: 2) {
-            HStack(spacing: 5) {
+        HStack(spacing: 6) {
+            GeminiSparkle(size: 14)
+                .scaleEffect(animate ? 1.2 : 0.8)
+                .opacity(animate ? 1.0 : 0.4)
+
+            Text("Thinking")
+                .font(GFont.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 3) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(LinearGradient.gemini)
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(animate ? 1.0 : 0.4)
+                        .fill(Color.geminiBlue)
+                        .frame(width: 4, height: 4)
                         .opacity(animate ? 1.0 : 0.3)
                         .animation(
-                            .easeInOut(duration: 0.6)
+                            .easeInOut(duration: 0.5)
                             .repeatForever(autoreverses: true)
-                            .delay(Double(index) * 0.2),
+                            .delay(Double(index) * 0.15),
                             value: animate
                         )
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(LinearGradient.glassEdge, lineWidth: 0.5)
-                    )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
 
             Spacer(minLength: 60)
         }
+        .padding(.leading, 2)
+        .animation(
+            .easeInOut(duration: 1.0)
+            .repeatForever(autoreverses: true),
+            value: animate
+        )
         .onAppear { animate = true }
     }
 }

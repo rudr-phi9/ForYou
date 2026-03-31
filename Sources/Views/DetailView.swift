@@ -20,9 +20,9 @@ struct DetailView: View {
 
                 Spacer()
 
-                // Glowing orb importance
+                // Signal ring importance
                 if item.importanceScore > 0 {
-                    GlowingOrb(score: item.importanceScore)
+                    SignalRing(score: item.importanceScore)
                 }
 
                 // Favorite & Save buttons
@@ -81,27 +81,26 @@ struct DetailView: View {
                         // Source + Timestamp
                         HStack(spacing: 6) {
                             Image(systemName: item.sourceType.iconName)
-                                .font(.caption)
-                                .foregroundStyle(.neonHighlight)
+                                .font(GFont.caption)
+                                .foregroundStyle(.geminiBlue)
                             Text(item.sourceName)
-                                .font(.caption)
+                                .font(GFont.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(item.formattedTimestamp)
-                                .font(.caption2)
+                                .font(GFont.caption2)
                                 .foregroundStyle(.tertiary)
                         }
 
                         // Title
                         Text(item.title)
-                            .font(.title3)
-                            .fontWeight(.bold)
+                            .font(GFont.title(.bold))
                             .fixedSize(horizontal: false, vertical: true)
 
                         // Authors
                         if !item.authors.isEmpty {
                             Text(item.authors.joined(separator: ", "))
-                                .font(.caption)
+                                .font(GFont.caption)
                                 .foregroundStyle(.secondary)
                         }
 
@@ -110,9 +109,9 @@ struct DetailView: View {
                             HStack(spacing: 4) {
                                 ForEach(item.tagNames, id: \.self) { tag in
                                     Text("#\(tag.replacingOccurrences(of: " ", with: "_"))")
-                                        .font(.caption2)
+                                        .font(GFont.caption2)
                                         .fontWeight(.medium)
-                                        .foregroundStyle(.neonHighlight)
+                                        .foregroundStyle(.geminiBlue)
                                 }
                             }
                         }
@@ -120,16 +119,15 @@ struct DetailView: View {
                         // Importance score
                         if item.importanceScore > 0 {
                             HStack(spacing: 8) {
-                                GlowingOrb(score: item.importanceScore)
+                                SignalRing(score: item.importanceScore)
                                 Text(String(format: "%.1f / 10", item.importanceScore))
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                                    .font(GFont.captionMedium)
                                     .foregroundStyle(.secondary)
                                 if let metric = item.authorMetric {
                                     Text("·")
                                         .foregroundStyle(.tertiary)
                                     Text(metric)
-                                        .font(.caption)
+                                        .font(GFont.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -142,33 +140,30 @@ struct DetailView: View {
                                     Text(item.sourceType == .talk
                                          ? "Summary (Visual/Audio Analysis)"
                                          : "Summary (Textual Analysis)")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
+                                        .font(GFont.bodyMedium)
                                 } icon: {
-                                    Image(systemName: "sparkles")
-                                        .font(.subheadline)
+                                    GeminiSparkle(size: 14)
                                 }
                                 .foregroundStyle(LinearGradient.gemini)
 
                                 Text(summary)
-                                    .font(.body)
+                                    .font(GFont.body)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 if !item.keyTakeaways.isEmpty {
                                     Text("Key Takeaways")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
+                                        .font(GFont.bodyMedium)
                                         .padding(.top, 4)
 
                                     VStack(alignment: .leading, spacing: 6) {
                                         ForEach(item.keyTakeaways, id: \.self) { takeaway in
                                             HStack(alignment: .top, spacing: 6) {
                                                 Text("•")
-                                                    .font(.body)
-                                                    .foregroundStyle(.neonHighlight)
+                                                    .font(GFont.body)
+                                                    .foregroundStyle(.geminiBlue)
                                                 Text(takeaway)
-                                                    .font(.body)
+                                                    .font(GFont.body)
                                                     .foregroundStyle(.secondary)
                                                     .fixedSize(horizontal: false, vertical: true)
                                             }
@@ -177,21 +172,14 @@ struct DetailView: View {
                                 }
                             }
                             .padding(12)
-                            .background(.ultraThinMaterial)
+                            .background(.regularMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(LinearGradient.glassEdge, lineWidth: 0.5)
                             )
                         } else {
-                            HStack(spacing: 6) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .frame(width: 12, height: 12)
-                                Text("Awaiting analysis…")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
+                            ShimmerSkeleton()
                         }
 
                         // MARK: - Action Buttons
@@ -207,6 +195,14 @@ struct DetailView: View {
                             .tint(.geminiBlue)
 
                             Button {
+                                showChat = true
+                            } label: {
+                                Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.geminiPurple)
+
+                            Button {
                                 if let url = item.sourceURL {
                                     let pb = NSPasteboard.general
                                     pb.clearContents()
@@ -214,13 +210,6 @@ struct DetailView: View {
                                 }
                             } label: {
                                 Label("Copy Link", systemImage: "doc.on.doc")
-                            }
-                            .buttonStyle(.bordered)
-
-                            Button {
-                                showChat = true
-                            } label: {
-                                Label("Chat", systemImage: "bubble.left.and.bubble.right")
                             }
                             .buttonStyle(.bordered)
                         }

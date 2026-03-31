@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Gel-drop tag pill with liquid glass styling.
+/// Material 3 Filter Chip — unselected: transparent + gray outline; selected: blue tonal fill + checkmark.
 struct TagPillView: View {
     let name: String
     let isSelected: Bool
@@ -9,55 +9,42 @@ struct TagPillView: View {
     @State private var isHovered = false
 
     var body: some View {
-        Text(name)
-            .font(.caption)
-            .fontWeight(isSelected ? .bold : .regular)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .foregroundStyle(isSelected ? .white : .secondary)
-            .background {
-                if isSelected {
-                    Capsule(style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.geminiBlue.opacity(0.4),
-                                    Color.geminiPurple.opacity(0.4)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.ultraThinMaterial)
-                        )
-                } else {
-                    Capsule(style: .continuous)
-                        .fill(.ultraThinMaterial)
-                }
+        HStack(spacing: 4) {
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .transition(.scale.combined(with: .opacity))
             }
-            .clipShape(Capsule(style: .continuous))
-            .overlay {
+            Text(name)
+                .font(GFont.captionMedium)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .foregroundStyle(isSelected ? .geminiBlue : .secondary)
+        .background {
+            Capsule(style: .continuous)
+                .fill(isSelected ? Color.geminiBlue.opacity(0.15) : Color.clear)
+        }
+        .clipShape(Capsule(style: .continuous))
+        .overlay {
+            Capsule(style: .continuous)
+                .stroke(
+                    isSelected ? Color.clear : Color.primary.opacity(0.15),
+                    lineWidth: 1
+                )
+        }
+        .background {
+            if isHovered && !isSelected {
                 Capsule(style: .continuous)
-                    .stroke(
-                        isSelected
-                            ? LinearGradient.glassEdge
-                            : LinearGradient(
-                                colors: [.white.opacity(0.2), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                              ),
-                        lineWidth: isSelected ? 1 : 0.5
-                    )
+                    .fill(Color.primary.opacity(0.04))
             }
-            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-            .scaleEffect(isHovered ? 1.05 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
-            .contentShape(Capsule())
-            .onTapGesture { onTap() }
-            .onHover { hovering in
-                isHovered = hovering
-            }
+        }
+        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(.easeOut(duration: 0.1), value: isHovered)
+        .contentShape(Capsule())
+        .onTapGesture { onTap() }
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }

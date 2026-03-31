@@ -77,20 +77,20 @@ struct PopoverView: View {
                             .font(.system(size: 30))
                             .foregroundStyle(.tertiary)
                         Text("No items with importance \(Int(appState.minimumImportance))+ yet")
-                            .font(.caption)
+                            .font(GFont.caption)
                             .foregroundStyle(.secondary)
                         Button("Show all") {
                             appState.minimumImportance = 0
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.geminiBlue)
-                        .font(.caption)
+                        .font(GFont.caption)
                     } else {
                         Image(systemName: appState.feedFilter == .favorites ? "star" : "bookmark")
                             .font(.system(size: 30))
                             .foregroundStyle(.tertiary)
                         Text("No \(appState.feedFilter.rawValue.lowercased()) items yet")
-                            .font(.caption)
+                            .font(GFont.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -144,37 +144,37 @@ struct PopoverView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Text("For You")
-                .font(.system(.title3, weight: .bold))
+                .font(GFont.displayTitle)
 
             Spacer()
 
             // Favorites filter
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+            GlassActionButton(
+                systemName: appState.feedFilter == .favorites ? "star.fill" : "star",
+                isActive: appState.feedFilter == .favorites,
+                activeColor: .yellow,
+                inactiveColor: .secondary,
+                help: "Favorites"
+            ) {
+                withAnimation(.easeOut(duration: 0.15)) {
                     appState.feedFilter = appState.feedFilter == .favorites ? .all : .favorites
                 }
-            } label: {
-                Image(systemName: appState.feedFilter == .favorites ? "star.fill" : "star")
-                    .font(.system(size: 14, weight: .medium))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(appState.feedFilter == .favorites ? .yellow : .secondary)
-            .help("Favorites")
 
             // Saved filter
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+            GlassActionButton(
+                systemName: appState.feedFilter == .saved ? "bookmark.fill" : "bookmark",
+                isActive: appState.feedFilter == .saved,
+                activeColor: .geminiPurple,
+                inactiveColor: .secondary,
+                help: "Saved"
+            ) {
+                withAnimation(.easeOut(duration: 0.15)) {
                     appState.feedFilter = appState.feedFilter == .saved ? .all : .saved
                 }
-            } label: {
-                Image(systemName: appState.feedFilter == .saved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 14, weight: .medium))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(appState.feedFilter == .saved ? .geminiPurple : .secondary)
-            .help("Saved")
 
             // Importance score filter
             Menu {
@@ -193,7 +193,7 @@ struct PopoverView: View {
                         .font(.system(size: 13, weight: .medium))
                     if appState.minimumImportance > 0 {
                         Text("\(Int(appState.minimumImportance))+")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(GFont.caption2)
                     }
                 }
             }
@@ -203,36 +203,28 @@ struct PopoverView: View {
             .help("Filter by importance score")
 
             // Sync button
-            Button {
+            GlassActionButton(
+                systemName: "arrow.clockwise",
+                isActive: appState.isSyncing,
+                activeColor: .geminiBlue,
+                inactiveColor: .geminiBlue,
+                help: "Sync Now"
+            ) {
                 Task {
                     await GatheringService.shared.syncNow(appState: appState)
                 }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .medium))
-                    .rotationEffect(.degrees(appState.isSyncing ? 360 : 0))
-                    .animation(
-                        appState.isSyncing
-                            ? .linear(duration: 1).repeatForever(autoreverses: false)
-                            : .default,
-                        value: appState.isSyncing
-                    )
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.geminiBlue)
-            .disabled(appState.isSyncing)
-            .help("Sync Now")
 
             // Settings gear
-            Button {
+            GlassActionButton(
+                systemName: "gearshape",
+                isActive: false,
+                activeColor: .secondary,
+                inactiveColor: .secondary,
+                help: "Settings"
+            ) {
                 showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14, weight: .medium))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Settings")
         }
     }
 
@@ -274,11 +266,11 @@ struct PopoverView: View {
                 .foregroundStyle(LinearGradient.gemini)
 
             Text("No Research Yet")
-                .font(.headline)
+                .font(GFont.title(.semibold))
 
             if activeTags.isEmpty {
                 Text("Add some research topics in Settings to get started.")
-                    .font(.caption)
+                    .font(GFont.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
@@ -289,7 +281,7 @@ struct PopoverView: View {
                 .tint(.geminiBlue)
             } else if !SettingsManager.shared.hasAPIKey {
                 Text("Add your AI API key in Settings.")
-                    .font(.caption)
+                    .font(GFont.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
@@ -300,7 +292,7 @@ struct PopoverView: View {
                 .tint(.geminiBlue)
             } else {
                 Text("Tap Sync to fetch the latest research.")
-                    .font(.caption)
+                    .font(GFont.caption)
                     .foregroundStyle(.secondary)
 
                 Button {

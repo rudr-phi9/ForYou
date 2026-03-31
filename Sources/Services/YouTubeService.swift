@@ -22,18 +22,19 @@ final class YouTubeService {
             return []
         }
 
-        let academicQuery = "\(query) lecture OR conference talk OR keynote"
+        let academicQuery = query
 
         // Build URL with properly encoded components
         var components = URLComponents(string: "https://www.googleapis.com/youtube/v3/search")!
         components.queryItems = [
             URLQueryItem(name: "part", value: "snippet"),
             URLQueryItem(name: "type", value: "video"),
-            URLQueryItem(name: "order", value: "date"),
+            URLQueryItem(name: "order", value: "relevance"),
             URLQueryItem(name: "maxResults", value: "\(maxResults)"),
             URLQueryItem(name: "q", value: academicQuery),
             URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "publishedAfter", value: iso8601DaysAgo(7)),
+            URLQueryItem(name: "publishedAfter", value: iso8601DaysAgo(30)),
+            URLQueryItem(name: "relevanceLanguage", value: "en"),
         ]
 
         guard let url = components.url else {

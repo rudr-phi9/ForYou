@@ -104,18 +104,18 @@ struct GlowingOrb: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [orbColor, orbColor.opacity(0.0)],
+                        colors: [orbColor.opacity(0.45), orbColor.opacity(0.0)],
                         center: .center,
                         startRadius: 0,
-                        endRadius: 20
+                        endRadius: 16
                     )
                 )
-                .frame(width: 40, height: 40)
-                .blur(radius: 8)
+                .frame(width: 32, height: 32)
+                .blur(radius: 6)
 
             Text(String(format: "%.1f", score))
                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary.opacity(0.85))
         }
     }
 }

@@ -25,7 +25,7 @@ final class YouTubeService {
         let urlString = "https://www.googleapis.com/youtube/v3/search"
             + "?part=snippet&type=video&order=date&maxResults=\(maxResults)"
             + "&q=\(encoded)&key=\(apiKey)"
-            + "&publishedAfter=\(iso8601DaysAgo(1))"
+            + "&publishedAfter=\(iso8601DaysAgo(7))"
 
         guard let url = URL(string: urlString) else { return [] }
 

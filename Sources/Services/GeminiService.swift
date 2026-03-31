@@ -257,6 +257,7 @@ final class GeminiService {
 
         First, assess content quality. Mark as LOW quality if the content is any of:
         - Memes, jokes, satire, entertainment, or clickbait
+        - Kids material, cartoons and comics
         - Listicles, "top N" roundups, or superficial overviews
         - Content aimed at beginners/children with no technical depth
         - Promotional material, press releases, or marketing

@@ -13,31 +13,31 @@
 
 ## Installation
 
-### Homebrew (Recommended)
+### One-Line Install (Recommended)
 
 ```bash
-brew tap rudraksh/foryou
-brew install --cask foryou
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/rudraksh/ForYou/main/install.sh)"
 ```
 
-### Manual Build
+This clones, builds from source, and drops `ForYou.app` into `/Applications`. Requires Xcode 15+ and Homebrew.
 
-Requires **macOS 14.0+**, **Xcode 15+**, and **Homebrew**.
+### Homebrew Cask
+
+```bash
+brew install --cask rudraksh/foryou/foryou
+```
+
+> **Setup required once:** Create a GitHub repo named `homebrew-foryou`, push the contents of `homebrew-tap/` to it, then create a GitHub Release with `ForYou.zip` (built via `./scripts/build-release.sh`).
+
+### Manual Build
 
 ```bash
 git clone https://github.com/rudraksh/ForYou.git
 cd ForYou
-
-# Install XcodeGen if needed
 brew install xcodegen
-
-# Build
 xcodegen generate
 xcodebuild -scheme ForYou -configuration Release build
-
-# The app is at:
-# ~/Library/Developer/Xcode/DerivedData/ForYou-*/Build/Products/Release/ForYou.app
-# Drag it to /Applications
+# Copy the .app from DerivedData to /Applications
 ```
 
 ---

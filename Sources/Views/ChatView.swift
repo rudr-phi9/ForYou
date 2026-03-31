@@ -1,15 +1,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Scroll Offset PreferenceKey
-
-struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 /// Chat window for asking questions about a specific research item.
 /// Persists messages via SwiftData keyed on item URL.
 struct ChatView: View {
@@ -22,7 +13,6 @@ struct ChatView: View {
     @State private var isThinking = false
     @State private var streamingMessageId: UUID? = nil
     @State private var streamingDisplayText = ""
-    @State private var userScrolledUp = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,25 +46,12 @@ struct ChatView: View {
                 ScrollView(.vertical, showsIndicators: true) {
                     messageListContent
                 }
-                .coordinateSpace(name: "chatScroll")
-                .onPreferenceChange(ScrollOffsetKey.self) { maxY in
-                    let atBottom = maxY < 520
-                    if !atBottom && streamingMessageId != nil {
-                        userScrolledUp = true
-                    }
-                }
                 .onChange(of: messages.count) { _, _ in
-                    userScrolledUp = false
                     scrollToBottom(proxy: proxy)
                 }
-                .onChange(of: isThinking) { _, _ in
-                    userScrolledUp = false
-                    scrollToBottom(proxy: proxy)
-                }
-                .onChange(of: streamingDisplayText) { _, _ in
-                    guard !userScrolledUp, let id = streamingMessageId else { return }
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        proxy.scrollTo(id, anchor: .bottom)
+                .onChange(of: isThinking) { _, thinking in
+                    if thinking {
+                        scrollToBottom(proxy: proxy)
                     }
                 }
             }
@@ -151,14 +128,6 @@ struct ChatView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(
-            GeometryReader { geo in
-                Color.clear.preference(
-                    key: ScrollOffsetKey.self,
-                    value: geo.frame(in: .named("chatScroll")).maxY
-                )
-            }
-        )
     }
 
     private func loadHistory() {

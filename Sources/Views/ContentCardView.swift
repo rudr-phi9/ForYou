@@ -6,6 +6,8 @@ struct ContentCardView: View {
     let item: ResearchItem
     var onTap: () -> Void = {}
 
+    @State private var showChat = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // MARK: - Header: Source + Timestamp + Glowing Orb
@@ -191,12 +193,25 @@ struct ContentCardView: View {
                     }
                 }
 
+                GlassActionButton(
+                    systemName: "bubble.left.and.bubble.right",
+                    isActive: false,
+                    activeColor: .neonHighlight,
+                    inactiveColor: .secondary,
+                    help: "Chat about this"
+                ) {
+                    showChat = true
+                }
+
                 Spacer()
             }
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .geminiCard()
+        .sheet(isPresented: $showChat) {
+            ChatView(item: item)
+        }
     }
 
     private var previewPlaceholder: some View {

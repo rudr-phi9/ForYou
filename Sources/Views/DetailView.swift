@@ -5,6 +5,7 @@ import SwiftUI
 struct DetailView: View {
     let item: ResearchItem
     @Environment(\.dismiss) private var dismiss
+    @State private var showChat = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -215,6 +216,13 @@ struct DetailView: View {
                                 Label("Copy Link", systemImage: "doc.on.doc")
                             }
                             .buttonStyle(.bordered)
+
+                            Button {
+                                showChat = true
+                            } label: {
+                                Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                     .padding(20)
@@ -228,6 +236,9 @@ struct DetailView: View {
                 FluidBackground()
                 Rectangle().fill(.thinMaterial)
             }
+        }
+        .sheet(isPresented: $showChat) {
+            ChatView(item: item)
         }
     }
 }

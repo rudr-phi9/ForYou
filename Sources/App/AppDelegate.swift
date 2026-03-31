@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
 
     let modelContainer: ModelContainer = {
-        let schema = Schema([Tag.self, ResearchItem.self])
+        let schema = Schema([Tag.self, ResearchItem.self, ChatMessage.self])
         let config = ModelConfiguration("GeminiResearch", isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [config])

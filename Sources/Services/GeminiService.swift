@@ -313,6 +313,53 @@ final class GeminiService {
         return EnrichedResult(summary: summary, importanceScore: score, authorMetric: authorMetric)
     }
 
+    // MARK: - Chat About Item
+
+    /// Multi-turn chat grounded in a research item's context.
+    /// Sends the item summary + content as system context, chat history, and the new user question.
+    func chat(
+        itemTitle: String,
+        itemSummary: String?,
+        itemTakeaways: [String],
+        itemContent: String?,
+        history: [(role: String, content: String)],
+        userMessage: String
+    ) async throws -> String {
+        guard let model else { throw GeminiError.notConfigured }
+
+        var parts: [String] = []
+        parts.append("""
+        You are a helpful research assistant. The user is asking about the following research item. \
+        Answer concisely and accurately based on the provided context. If you don't know, say so.
+
+        TITLE: \(itemTitle)
+        """)
+
+        if let summary = itemSummary, !summary.isEmpty {
+            parts.append("SUMMARY: \(summary)")
+        }
+        if !itemTakeaways.isEmpty {
+            parts.append("KEY TAKEAWAYS:\n" + itemTakeaways.map { "• \($0)" }.joined(separator: "\n"))
+        }
+        if let content = itemContent, !content.isEmpty {
+            parts.append("FULL CONTENT (truncated):\n\(String(content.prefix(4_000)))")
+        }
+
+        parts.append("---\nCONVERSATION:")
+        for msg in history {
+            parts.append("\(msg.role == "user" ? "User" : "Assistant"): \(msg.content)")
+        }
+        parts.append("User: \(userMessage)")
+        parts.append("\nAssistant:")
+
+        let prompt = parts.joined(separator: "\n\n")
+        let response = try await model.generateContent(prompt)
+        guard let text = response.text, !text.isEmpty else {
+            throw GeminiError.emptyResponse
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Errors
 
     enum GeminiError: LocalizedError {

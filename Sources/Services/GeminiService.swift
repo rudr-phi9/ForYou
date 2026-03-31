@@ -221,6 +221,7 @@ final class GeminiService {
         let summary: Summary
         let importanceScore: Double
         let authorMetric: String
+        let isHighQuality: Bool
     }
 
     /// Single API call that returns summary, key takeaways, importance score, and author metric.
@@ -254,7 +255,16 @@ final class GeminiService {
         Content:
         \(truncated)
 
+        First, assess content quality. Mark as LOW quality if the content is any of:
+        - Memes, jokes, satire, entertainment, or clickbait
+        - Listicles, "top N" roundups, or superficial overviews
+        - Content aimed at beginners/children with no technical depth
+        - Promotional material, press releases, or marketing
+        - Unrelated to serious research, engineering, or technical discussion
+
         Respond in EXACTLY this format (no extra text):
+        QUALITY: <HIGH or LOW>
+
         SUMMARY:
         <4-sentence summary>
 
@@ -277,6 +287,7 @@ final class GeminiService {
         var takeaways: [String] = []
         var score = 5.0
         var authorMetric = ""
+        var isHighQuality = true
 
         let lines = raw.components(separatedBy: "\n")
         var inSummary = false
@@ -284,6 +295,11 @@ final class GeminiService {
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.uppercased().hasPrefix("QUALITY:") {
+                let val = trimmed.dropFirst(8).trimmingCharacters(in: .whitespaces).uppercased()
+                isHighQuality = val != "LOW"
+                continue
+            }
             if trimmed.uppercased().hasPrefix("SUMMARY") { inSummary = true; inTakeaways = false; continue }
             if trimmed.uppercased().hasPrefix("KEY TAKEAWAY") { inSummary = false; inTakeaways = true; continue }
             if trimmed.uppercased().hasPrefix("SCORE:") {
@@ -310,7 +326,7 @@ final class GeminiService {
 
         if summaryText.isEmpty { summaryText = raw }
         let summary = Summary(text: summaryText, keyTakeaways: takeaways)
-        return EnrichedResult(summary: summary, importanceScore: score, authorMetric: authorMetric)
+        return EnrichedResult(summary: summary, importanceScore: score, authorMetric: authorMetric, isHighQuality: isHighQuality)
     }
 
     // MARK: - Chat About Item

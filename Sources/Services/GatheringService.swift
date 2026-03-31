@@ -298,6 +298,11 @@ final class GatheringService {
                     authors: item.authors,
                     tagName: item.tagNames.first ?? ""
                 )
+                if !enriched.isHighQuality {
+                    item.isDiscarded = true
+                    print("[Gathering] Discarded low-quality: \(item.title)")
+                    return
+                }
                 item.geminiSummary = enriched.summary.text
                 item.keyTakeaways = enriched.summary.keyTakeaways
                 item.isSummarized = true

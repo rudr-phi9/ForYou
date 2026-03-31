@@ -1,6 +1,15 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Scroll Offset PreferenceKey
+
+struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Chat window for asking questions about a specific research item.
 /// Persists messages via SwiftData keyed on item URL.
 struct ChatView: View {
@@ -13,6 +22,7 @@ struct ChatView: View {
     @State private var isThinking = false
     @State private var streamingMessageId: UUID? = nil
     @State private var streamingDisplayText = ""
+    @State private var userScrolledUp = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,34 +54,27 @@ struct ChatView: View {
             // MARK: - Messages
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(messages) { msg in
-                            ChatBubble(
-                                message: msg,
-                                streamingText: msg.id == streamingMessageId ? streamingDisplayText : nil
-                            )
-                            .id(msg.id)
-                        }
-
-                        if isThinking {
-                            ThinkingIndicator()
-                                .id("thinking")
-                        }
+                    messageListContent
+                }
+                .coordinateSpace(name: "chatScroll")
+                .onPreferenceChange(ScrollOffsetKey.self) { maxY in
+                    let atBottom = maxY < 520
+                    if !atBottom && streamingMessageId != nil {
+                        userScrolledUp = true
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
                 }
                 .onChange(of: messages.count) { _, _ in
+                    userScrolledUp = false
                     scrollToBottom(proxy: proxy)
                 }
                 .onChange(of: isThinking) { _, _ in
+                    userScrolledUp = false
                     scrollToBottom(proxy: proxy)
                 }
                 .onChange(of: streamingDisplayText) { _, _ in
-                    if let id = streamingMessageId {
-                        withAnimation(.easeOut(duration: 0.1)) {
-                            proxy.scrollTo(id, anchor: .bottom)
-                        }
+                    guard !userScrolledUp, let id = streamingMessageId else { return }
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        proxy.scrollTo(id, anchor: .bottom)
                     }
                 }
             }
@@ -123,6 +126,39 @@ struct ChatView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Message List (extracted to reduce type-check complexity)
+
+    private var messageListContent: some View {
+        LazyVStack(alignment: .leading, spacing: 10) {
+            ForEach(messages) { msg in
+                ChatBubble(
+                    message: msg,
+                    streamingText: msg.id == streamingMessageId ? streamingDisplayText : nil
+                )
+                .id(msg.id)
+            }
+
+            if isThinking {
+                ThinkingIndicator()
+                    .id("thinking")
+            }
+
+            Color.clear
+                .frame(height: 1)
+                .id("bottom")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: ScrollOffsetKey.self,
+                    value: geo.frame(in: .named("chatScroll")).maxY
+                )
+            }
+        )
     }
 
     private func loadHistory() {

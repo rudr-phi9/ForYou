@@ -136,10 +136,20 @@ struct ChatView: View {
         let itemTitle = item.title
         let itemSummary = item.geminiSummary
         let itemTakeaways = item.keyTakeaways
-        let itemContent = item.rawTextContent
+        var itemContent = item.rawTextContent
 
         Task {
             do {
+                // Fetch content on-demand if missing
+                if (itemContent ?? "").isEmpty, let url = URL(string: item.url) {
+                    let scraped = try? await WebScraperService.shared.scrape(url: url)
+                    itemContent = scraped?.textContent
+                    // Cache it back on the item for future chats
+                    await MainActor.run {
+                        item.rawTextContent = itemContent
+                    }
+                }
+
                 let response = try await GeminiService.shared.chat(
                     itemTitle: itemTitle,
                     itemSummary: itemSummary,

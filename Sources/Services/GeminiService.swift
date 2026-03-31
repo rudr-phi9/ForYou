@@ -329,8 +329,16 @@ final class GeminiService {
 
         var parts: [String] = []
         parts.append("""
-        You are a helpful research assistant. The user is asking about the following research item. \
-        Answer concisely and accurately based on the provided context. If you don't know, say so.
+        You are an expert research assistant with deep knowledge across all scientific and technical domains. \
+        The user is asking about a specific research item. You have been given context about this item below.
+
+        INSTRUCTIONS:
+        - Answer questions thoroughly and in detail, combining the provided context with your own knowledge.
+        - If the provided content is a summary, expand on the topic using your training knowledge.
+        - Explain concepts, methods, results, and implications in depth when asked.
+        - Use markdown formatting: **bold** for emphasis, bullet points for lists, code blocks for code.
+        - If the user asks for more detail, provide a comprehensive explanation — never refuse by saying you only have a summary.
+        - Be conversational and helpful, like a knowledgeable colleague.
 
         TITLE: \(itemTitle)
         """)
@@ -342,7 +350,7 @@ final class GeminiService {
             parts.append("KEY TAKEAWAYS:\n" + itemTakeaways.map { "• \($0)" }.joined(separator: "\n"))
         }
         if let content = itemContent, !content.isEmpty {
-            parts.append("FULL CONTENT (truncated):\n\(String(content.prefix(4_000)))")
+            parts.append("FULL CONTENT:\n\(String(content.prefix(8_000)))")
         }
 
         parts.append("---\nCONVERSATION:")

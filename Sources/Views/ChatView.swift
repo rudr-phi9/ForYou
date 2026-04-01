@@ -238,13 +238,13 @@ struct ChatBubble: View {
 
             Text(renderedMarkdown)
                 .font(GFont.chat)
-                .foregroundStyle(message.isUser ? .primary : .primary)
+                .foregroundStyle(message.isUser ? Color.white : .primary)
                 .padding(.horizontal, message.isUser ? 12 : 0)
                 .padding(.vertical, message.isUser ? 8 : 2)
                 .background {
                     if message.isUser {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.surfaceTonalLight)
+                            .fill(LinearGradient.gemini)
                     }
                 }
                 .textSelection(.enabled)

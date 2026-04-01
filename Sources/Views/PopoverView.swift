@@ -232,7 +232,7 @@ struct PopoverView: View {
 
     @ViewBuilder
     private var tagBar: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 // "All" pill
                 TagPillView(

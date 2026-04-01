@@ -150,7 +150,7 @@ Your research interests are yours.
 
 <div align="center">
 
-Made with obsession and too much coffee.
+Made with obsession and pending claude credits.
 
 **[⬇️ Download For You](../../releases/latest)**
 

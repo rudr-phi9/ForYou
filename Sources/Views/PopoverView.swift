@@ -98,7 +98,7 @@ struct PopoverView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: true) {
+                    ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 8) {
                             ForEach(displayedItems) { item in
                                 ContentCardView(item: item) {
